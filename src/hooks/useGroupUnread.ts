@@ -34,14 +34,16 @@ export function useGroupUnread(
 ) {
   const [messages, setMessages] = useState<GroupMessageRow[]>([]);
   const [readStatuses, setReadStatuses] = useState<any[]>([]);
-
+  const groupIdsKey = accessibleGroupIds.join('|');
+  const groupIds = groupIdsKey.split('|').filter(Boolean).slice(0, 30);
+  
   useEffect(() => {
-    if (!currentUserId || accessibleGroupIds.length === 0) {
+    if (!currentUserId || !groupIdsKey) {
       setMessages([]);
       return;
     }
 
-    const groupIds = accessibleGroupIds.slice(0, 30);
+    const groupIds = groupIdsKey.split('|').filter(Boolean).slice(0, 30);
 
     const messagesQuery = query(
       collection(db, 'group_messages'),
@@ -70,7 +72,7 @@ export function useGroupUnread(
     );
 
     return () => unsubscribe();
-  }, [currentUserId, accessibleGroupIds.join('|')]);
+  }, [currentUserId, groupIdsKey]);
 
   useEffect(() => {
     if (!currentUserId) {

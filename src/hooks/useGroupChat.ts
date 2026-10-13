@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
+import { useApp } from '@/contexts/AppContext';
 import {
   addDoc,
   collection,
@@ -19,6 +20,7 @@ import { sendPushToUser } from './usePushNotifications';
 export interface GroupMessage {
   id: string;
   group_id: string;
+  sender_id: string;
   sender_username: string;
   content: string;
   attachment_url: string | null;
@@ -31,7 +33,9 @@ export interface GroupMessage {
 
 const toIso = (value: any): string => {
   if (!value) return '';
-  if (value?.toDate) return value.toDate().toISOString();
+  if (typeof value?.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
   if (typeof value === 'string') return value;
   return '';
 };
@@ -39,6 +43,7 @@ const toIso = (value: any): string => {
 const mapMessage = (id: string, data: any): GroupMessage => ({
   id,
   group_id: data.group_id || '',
+  sender_id: data.sender_id || '',
   sender_username: data.sender_username || '',
   content: data.content || '',
   attachment_url: data.attachment_url || null,
@@ -50,10 +55,15 @@ const mapMessage = (id: string, data: any): GroupMessage => ({
 });
 
 export function useGroupChat(groupId: string | null) {
+  const { authenticatedUser } = useApp();
+
+  const authenticatedUserId = authenticatedUser?.id ?? null;
+  const authenticatedUsername = authenticatedUser?.username ?? null;
+
   const [messages, setMessages] = useState<GroupMessage[]>([]);
 
   useEffect(() => {
-    if (!groupId) {
+    if (!groupId || !authenticatedUserId) {
       setMessages([]);
       return;
     }
@@ -76,11 +86,14 @@ export function useGroupChat(groupId: string | null) {
 
         setMessages(next);
       },
-      (error) => console.error('Erro ao carregar mensagens do grupo:', error)
+      (error) => {
+        console.error('Erro ao carregar mensagens do grupo:', error);
+        setMessages([]);
+      }
     );
 
     return () => unsubscribe();
-  }, [groupId]);
+  }, [groupId, authenticatedUserId]);
 
   const sendMessage = useCallback(
     async (
@@ -94,9 +107,18 @@ export function useGroupChat(groupId: string | null) {
     ) => {
       if (!groupId) return;
 
+      if (!authenticatedUserId || !authenticatedUsername) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // O remetente é determinado pela sessão autenticada,
+      // nunca pelo parâmetro recebido do componente.
+      const verifiedSenderUsername = authenticatedUsername;
+
       await addDoc(collection(db, 'group_messages'), {
         group_id: groupId,
-        sender_username: senderUsername,
+        sender_id: authenticatedUserId,
+        sender_username: verifiedSenderUsername,
         content: msg.content,
         attachment_url: msg.attachmentUrl ?? null,
         attachment_type: msg.attachmentType ?? null,
@@ -112,32 +134,33 @@ export function useGroupChat(groupId: string | null) {
 
         if (!groupSnapshot.exists()) return;
 
-        const participants = Array.isArray(groupSnapshot.data().participants)
-          ? groupSnapshot.data().participants
+        const groupData = groupSnapshot.data();
+
+        const participantIds: string[] = Array.isArray(groupData.participant_ids)
+          ? groupData.participant_ids
           : [];
 
-        if (participants.length === 0) return;
+        if (participantIds.length === 0) return;
 
-        const usersSnapshot = await getDocs(collection(db, 'app_users'));
+        const usersSnapshot = await getDocs(collection(db, 'users'));
 
         const matchingUsers = usersSnapshot.docs
           .map((userDoc) => ({
             id: userDoc.id,
-            ...userDoc.data(),
+            username: String(userDoc.data().username || '').trim(),
+            active: userDoc.data().active !== false,
           }))
-          .filter(
-            (user: any) => participants.includes(user.id) || participants.includes(user.username)
-          );
+          .filter((user) => participantIds.includes(user.id));
 
-        for (const user of matchingUsers as any[]) {
-          if (user.username === senderUsername || user.active === false) {
+        for (const user of matchingUsers) {
+          if (user.id === authenticatedUserId || !user.active) {
             continue;
           }
 
           void sendPushToUser(
             user.id,
             'Nova mensagem de grupo',
-            `${senderUsername}: ${msg.content.substring(0, 100)}`,
+            `${verifiedSenderUsername}: ${msg.content.substring(0, 100)}`,
             '/chat'
           );
         }
@@ -145,24 +168,68 @@ export function useGroupChat(groupId: string | null) {
         console.warn('Falha ao enviar push do grupo:', error);
       }
     },
-    [groupId]
+    [groupId, authenticatedUserId, authenticatedUsername]
   );
 
-  const editMessage = useCallback(async (msgId: string, newContent: string) => {
-    await updateDoc(doc(db, 'group_messages', msgId), {
-      content: newContent,
-      edited: true,
-      updated_at: Timestamp.now(),
-    });
-  }, []);
+  const editMessage = useCallback(
+    async (msgId: string, newContent: string) => {
+      if (!authenticatedUserId) {
+        throw new Error('Usuário não autenticado');
+      }
 
-  const deleteMessage = useCallback(async (msgId: string) => {
-    await updateDoc(doc(db, 'group_messages', msgId), {
-      deleted: true,
-      content: 'Mensagem apagada',
-      updated_at: Timestamp.now(),
-    });
-  }, []);
+      const messageRef = doc(db, 'group_messages', msgId);
+      const messageSnapshot = await getDoc(messageRef);
+
+      if (!messageSnapshot.exists()) {
+        throw new Error('Mensagem não encontrada');
+      }
+
+      const data = messageSnapshot.data();
+
+      if (data.sender_id !== authenticatedUserId) {
+        throw new Error('Você só pode editar suas próprias mensagens');
+      }
+
+      if (data.deleted === true) {
+        throw new Error('Não é possível editar uma mensagem apagada');
+      }
+
+      await updateDoc(messageRef, {
+        content: newContent,
+        edited: true,
+        updated_at: Timestamp.now(),
+      });
+    },
+    [authenticatedUserId]
+  );
+
+  const deleteMessage = useCallback(
+    async (msgId: string) => {
+      if (!authenticatedUserId) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const messageRef = doc(db, 'group_messages', msgId);
+      const messageSnapshot = await getDoc(messageRef);
+
+      if (!messageSnapshot.exists()) {
+        throw new Error('Mensagem não encontrada');
+      }
+
+      const data = messageSnapshot.data();
+
+      if (data.sender_id !== authenticatedUserId) {
+        throw new Error('Você só pode apagar suas próprias mensagens');
+      }
+
+      await updateDoc(messageRef, {
+        deleted: true,
+        content: 'Mensagem apagada',
+        updated_at: Timestamp.now(),
+      });
+    },
+    [authenticatedUserId]
+  );
 
   return {
     messages,

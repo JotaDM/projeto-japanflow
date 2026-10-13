@@ -10,7 +10,10 @@ import {
   orderBy,
   query,
   Timestamp,
+  where,
 } from 'firebase/firestore';
+
+import { useApp } from '@/contexts/AppContext';
 
 export interface CustomGroup {
   participantIds: string[];
@@ -28,37 +31,56 @@ const toIso = (value: any): string => {
   return '';
 };
 
+
+
 export function useCustomGroups() {
   const [groups, setGroups] = useState<CustomGroup[]>([]);
-
+  const { authenticatedUser } = useApp();
+  const authenticatedUserId = authenticatedUser?.id ?? null;
+ 
   useEffect(() => {
-    const groupsQuery = query(collection(db, 'custom_groups'), orderBy('created_at', 'desc'));
+  if (!authenticatedUserId) {
+    setGroups([]);
+    return;
+  }
 
-    const unsubscribe = onSnapshot(
-      groupsQuery,
-      (snapshot) => {
-        setGroups(
-          snapshot.docs.map((groupDoc) => {
-            const data = groupDoc.data();
+  const groupsQuery = query(
+    collection(db, 'custom_groups'),
+    where('participant_ids', 'array-contains', authenticatedUserId)
+  );
 
-            return {
-              participantIds: Array.isArray(data.participant_ids) ? data.participant_ids : [],
-              id: groupDoc.id,
-              name: data.name || '',
-              createdBy: data.created_by || '',
-              participants: Array.isArray(data.participants) ? data.participants : [],
-              createdAt: toIso(data.created_at),
-            };
-          })
-        );
-      },
-      (error) => {
-        console.error('Erro ao carregar grupos:', error);
+  return onSnapshot(
+    groupsQuery,
+    (snapshot) => {
+      const result = snapshot.docs.map((groupDoc) => {
+        const data = groupDoc.data();
+
+        return {
+          id: groupDoc.id,
+          name: data.name || '',
+          createdBy: data.created_by || '',
+          participants: Array.isArray(data.participants) ? data.participants : [],
+          participantIds: Array.isArray(data.participant_ids)
+            ? data.participant_ids
+            : [],
+          createdAt: toIso(data.created_at),
+        };
+      });
+
+      result.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setGroups(result);
+    },
+    (error) => {
+      console.error('Erro ao carregar grupos:', error);
+      setGroups([]);
       }
     );
+  }, [authenticatedUserId]);
 
-    return () => unsubscribe();
-  }, []);
 
   const createGroup = useCallback(
     async (name: string, participants: string[], createdBy: string) => {
