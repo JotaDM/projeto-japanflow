@@ -56,3 +56,4 @@ auth-users.json
 .dev.vars
 .firebase/
 .env.qa
+/local-backups/
