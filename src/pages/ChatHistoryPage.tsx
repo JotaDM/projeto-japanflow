@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { adminChatHistoryApi } from '@/lib/api';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import { toast } from 'sonner';
 import { Archive, Download, RefreshCw, Search, MessageSquare, ShieldCheck } from 'lucide-react';
 import JSZip from 'jszip';
 import { getSignedUrl } from '@/lib/signedUrl';
-
 interface Msg {
   id: string;
   sender_username: string;
@@ -19,16 +19,13 @@ interface Msg {
   attachment_type?: string | null;
   created_at: string;
 }
-
 interface Conversation {
   key: string;
   a: string;
   b: string;
   messages: Msg[];
 }
-
 const STORAGE_PREFIX = 'chatcache::v1::';
-
 const readLocalCache = (): Msg[] => {
   const out: Msg[] = [];
   try {
@@ -45,20 +42,15 @@ const readLocalCache = (): Msg[] => {
   }
   return out;
 };
-
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
-
 const sanitize = (s: string) => s.replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim() || 'usuario';
-
 const sanitizeFile = (s: string) => s.replace(/[^\p{L}\p{N}\-_. ]/gu, '_').trim() || 'arquivo';
-
 const extFromMime = (mime?: string | null) => {
   if (!mime) return 'bin';
   const m = mime.split(';')[0].split('/')[1] || 'bin';
   return m === 'jpeg' ? 'jpg' : m.replace(/[^a-z0-9]/gi, '') || 'bin';
 };
-
 /** Nome final do anexo (sempre com extensão). */
 const attachmentFileName = (m: Msg): string => {
   const raw = (m.attachment_name || '').trim();
@@ -75,7 +67,6 @@ const attachmentFileName = (m: Msg): string => {
   }
   return sanitizeFile(`${raw || 'anexo'}.${ext}`);
 };
-
 const downloadBlob = (filename: string, blob: Blob) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -86,25 +77,21 @@ const downloadBlob = (filename: string, blob: Blob) => {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };
-
 const ChatHistoryPage = () => {
   const { currentUser } = useApp();
   const [names, setNames] = useState<Record<string, string>>({});
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-
   const isAdminSector =
     currentUser?.role === 'admin' ||
     (currentUser?.sectors as string[] | undefined)?.includes('administracao');
-
   const load = async () => {
     setLoading(true);
     try {
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const nameMap: Record<string, string> = {};
       const usernameById = new Map<string, string>();
-
       usersSnapshot.docs.forEach((userDoc) => {
         const data = userDoc.data();
         const username = String(data.username || '').trim();
@@ -115,50 +102,53 @@ const ChatHistoryPage = () => {
         }
       });
       setNames(nameMap);
-
-      const messagesSnapshot = await getDocs(collection(db, 'messages'));
-      const all: Msg[] = messagesSnapshot.docs
-        .map((messageDoc) => {
-          const data = messageDoc.data();
-
+      const historyMessages: Array<Record<string, unknown> & { id: string }> = [];
+      let cursor: string | null = null;
+      do {
+        const page = await adminChatHistoryApi(cursor || undefined);
+        historyMessages.push(...page.messages);
+        cursor = page.cursor;
+      } while (cursor);
+      const stringValue = (value: unknown): string => (typeof value === 'string' ? value : '');
+      const nullableString = (value: unknown): string | null =>
+        typeof value === 'string' ? value : null;
+      const dateValue = (value: unknown): string => {
+        if (typeof value === 'string') return value;
+        if (value instanceof Date) return value.toISOString();
+        if (typeof value === 'object' && value !== null && 'seconds' in value) {
+          const seconds = (value as { seconds?: unknown }).seconds;
+          if (typeof seconds === 'number') return new Date(seconds * 1000).toISOString();
+        }
+        return '';
+      };
+      const all: Msg[] = historyMessages
+        .map((data): Msg | null => {
+          const senderId = stringValue(data.senderId);
+          const receiverId = stringValue(data.receiverId);
           const senderUsername =
-            data.sender_username || (data.senderId ? usernameById.get(data.senderId) : undefined);
-
+            stringValue(data.sender_username) || usernameById.get(senderId) || '';
           const receiverUsername =
-            data.receiver_username ||
-            (data.receiverId ? usernameById.get(data.receiverId) : undefined);
-
-          const createdValue = data.created_at || data.timestamp || data.createdAt;
-
-          const createdAt = createdValue?.toDate
-            ? createdValue.toDate().toISOString()
-            : typeof createdValue === 'string'
-              ? createdValue
-              : '';
-
+            stringValue(data.receiver_username) || usernameById.get(receiverId) || '';
           if (!senderUsername || !receiverUsername) return null;
-
           return {
-            id: messageDoc.id,
+            id: data.id,
             sender_username: senderUsername,
             receiver_username: receiverUsername,
-            content: String(data.content || ''),
-            attachment_url: data.attachment_url || data.attachmentUrl || null,
-            attachment_name: data.attachment_name || data.attachmentName || null,
-            attachment_type: data.attachment_type || data.attachmentType || null,
-            created_at: createdAt,
-          } as Msg;
+            content: stringValue(data.content),
+            attachment_url: nullableString(data.attachment_url ?? data.attachmentUrl),
+            attachment_name: nullableString(data.attachment_name ?? data.attachmentName),
+            attachment_type: nullableString(data.attachment_type ?? data.attachmentType),
+            created_at: dateValue(data.created_at ?? data.timestamp ?? data.createdAt),
+          };
         })
-        .filter((message): message is Msg => !!message)
+        .filter((message): message is Msg => message !== null)
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
       // Mescla o cache local deste navegador (mensagens antigas que já não estão no servidor)
       const merged = new Map<string, Msg>();
       for (const m of [...readLocalCache(), ...all]) {
         if (!m?.id || !m.sender_username || !m.receiver_username) continue;
         merged.set(m.id, m);
       }
-
       const byPair = new Map<string, Conversation>();
       for (const m of merged.values()) {
         const [a, b] = [m.sender_username, m.receiver_username].sort();
@@ -185,14 +175,11 @@ const ChatHistoryPage = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     if (isAdminSector) load();
     else setLoading(false);
   }, [isAdminSector]);
-
   const nameOf = (u: string) => names[u] || u;
-
   const buildTxt = (c: Conversation, fileNames: Map<string, string>) => {
     const header = `Conversa do usuário ${nameOf(c.a)} com o usuário ${nameOf(c.b)}\nTotal de mensagens: ${c.messages.length}\nExportado em: ${fmt(new Date().toISOString())}\n${'='.repeat(70)}\n\n`;
     const body = c.messages
@@ -205,12 +192,11 @@ const ChatHistoryPage = () => {
       .join('\n');
     return header + body + '\n';
   };
-
   const fetchAttachment = async (m: Msg): Promise<Blob | null> => {
     const url = m.attachment_url;
     if (!url) return null;
     try {
-      const target = url.startsWith('http') ? await getSignedUrl(url) : url;
+      const target = url.startsWith('data:') ? url : await getSignedUrl(url);
       const res = await fetch(target);
       if (!res.ok) return null;
       return await res.blob();
@@ -218,7 +204,6 @@ const ChatHistoryPage = () => {
       return null;
     }
   };
-
   const exportOne = async (c: Conversation) => {
     const base = `Conversa - ${sanitize(nameOf(c.a))} e ${sanitize(nameOf(c.b))}`;
     const withAttachments = c.messages.filter((m) => m.attachment_url);
@@ -237,14 +222,11 @@ const ChatHistoryPage = () => {
       used.add(name);
       fileNames.set(m.id, name);
     }
-
     const txt = buildTxt(c, fileNames);
-
     if (withAttachments.length === 0) {
       downloadBlob(`${base}.txt`, new Blob([txt], { type: 'text/plain;charset=utf-8' }));
       return;
     }
-
     const zip = new JSZip();
     zip.file(`${base}.txt`, txt);
     const folder = zip.folder('anexos')!;
@@ -255,7 +237,6 @@ const ChatHistoryPage = () => {
     const out = await zip.generateAsync({ type: 'blob' });
     downloadBlob(`${base}.zip`, out);
   };
-
   const exportAll = async () => {
     if (filtered.length === 0) return;
     toast.info('Preparando exportação...');
@@ -265,7 +246,6 @@ const ChatHistoryPage = () => {
     }
     toast.success(`${filtered.length} arquivo(s) exportado(s)`);
   };
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return conversations;
@@ -274,7 +254,6 @@ const ChatHistoryPage = () => {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations, search, names]);
-
   if (!isAdminSector) {
     return (
       <div className="p-6">
@@ -285,7 +264,6 @@ const ChatHistoryPage = () => {
       </div>
     );
   }
-
   return (
     <div className="space-y-5">
       <section className="jf-diagonal-accent overflow-hidden rounded-2xl border border-border/70 bg-card p-5 shadow-card md:p-6">
@@ -314,7 +292,6 @@ const ChatHistoryPage = () => {
           </div>
         </div>
       </section>
-
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -324,7 +301,6 @@ const ChatHistoryPage = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-
       {loading ? (
         <p className="text-muted-foreground">Carregando conversas...</p>
       ) : filtered.length === 0 ? (
@@ -359,7 +335,6 @@ const ChatHistoryPage = () => {
           })}
         </div>
       )}
-
       <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
@@ -370,5 +345,4 @@ const ChatHistoryPage = () => {
     </div>
   );
 };
-
 export default ChatHistoryPage;

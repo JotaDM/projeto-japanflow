@@ -347,6 +347,24 @@ export interface StorageAuditResult {
   orphanFiles: Array<{ path: string; size: number }>;
 }
 
+export async function adminChatHistoryApi(cursor?: string): Promise<{
+  messages: Array<Record<string, unknown> & { id: string }>;
+  cursor: string | null;
+}> {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+
+  const suffix = params.toString();
+  const url = `${WEB_API_BASE_URL}/admin/chat-history${suffix ? `?${suffix}` : ''}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: await getAuthHeaders(),
+  });
+
+  return parseApiResponse(response);
+}
+
 export const storageAuditReportApi = (input: { knownPaths: string[] }) =>
   webPostJson<StorageAuditResult>('/admin/storage/audit', input);
 

@@ -10,7 +10,7 @@ import { initializeApp, applicationDefault } from 'firebase-admin/app';
 
 import { getAuth } from 'firebase-admin/auth';
 
-import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { FieldPath, FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore';
 
 import { getMessaging } from 'firebase-admin/messaging';
 
@@ -898,6 +898,50 @@ async function adminStorageAudit(req, res, caller) {
   });
 }
 
+async function adminChatHistory(req, res, caller) {
+  requireAdmin(caller);
+
+  const url = new URL(req.url, 'http://localhost');
+  const cursor = url.searchParams.get('cursor');
+
+  if (cursor && (cursor.length > 1500 || cursor.includes('/'))) {
+    return json(req, res, 400, { error: 'Cursor inválido' });
+  }
+
+  let messagesQuery = db.collection('messages').orderBy(FieldPath.documentId()).limit(250);
+
+  if (cursor) {
+    messagesQuery = messagesQuery.startAfter(cursor);
+  }
+
+  const snapshot = await messagesQuery.get();
+
+  const messages = snapshot.docs.map((messageDoc) => {
+    const data = messageDoc.data();
+
+    const convertDate = (value) =>
+      value && typeof value.toDate === 'function' ? value.toDate().toISOString() : (value ?? null);
+
+    return {
+      id: messageDoc.id,
+      ...data,
+      timestamp: convertDate(data.timestamp),
+      created_at: convertDate(data.created_at),
+      createdAt: convertDate(data.createdAt),
+    };
+  });
+
+  console.info('admin-chat-history-read', {
+    adminUserId: caller.userId,
+    count: messages.length,
+  });
+
+  return json(req, res, 200, {
+    messages,
+    cursor: snapshot.size === 250 ? snapshot.docs[snapshot.docs.length - 1].id : null,
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') {
@@ -927,6 +971,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     const caller = await authenticate(req);
+
+    if (
+      req.method === 'GET' &&
+      new URL(req.url, 'http://localhost').pathname === '/admin/chat-history'
+    ) {
+      return adminChatHistory(req, res, caller);
+    }
 
     if (req.method === 'GET' && req.url.startsWith('/admin/storage/list')) {
       return adminStorageList(req, res, caller);
