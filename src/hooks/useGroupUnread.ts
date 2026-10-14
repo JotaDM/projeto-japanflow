@@ -47,7 +47,7 @@ export function useGroupUnread(
     const messagesQuery = query(
       collection(db, 'group_messages'),
       where('group_id', 'in', groupIds),
-      limit(300)
+      limit(100)
     );
 
     const unsubscribe = onSnapshot(
