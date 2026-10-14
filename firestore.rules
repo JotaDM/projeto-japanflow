@@ -238,26 +238,63 @@ service cloud.firestore {
     }
 
     match /chat_read_status/{statusId} {
-      allow get, list: if isActive()
-        && resource.data.user_id == currentUserId()
-        && request.query.limit <= 100;
+      function groupStatus(data) {
+        return 'user_id' in data
+          && data.user_id == currentUserId()
+          && 'group_id' in data
+          && isGroupMember(data.group_id);
+      }
+
+      function privateStatus(data) {
+        return 'userId' in data
+          && data.userId == currentUserId()
+          && 'partnerId' in data
+          && data.partnerId is string;
+      }
+
+      allow get: if isActive()
+        && (groupStatus(resource.data) || privateStatus(resource.data));
+
+      allow list: if isActive()
+        && request.query.limit <= 100
+        && groupStatus(resource.data);
 
       allow create: if isActive()
-        && request.resource.data.user_id == currentUserId()
-        && request.resource.data.group_id is string
-        && isGroupMember(request.resource.data.group_id);
+        && (
+          groupStatus(request.resource.data)
+          || privateStatus(request.resource.data)
+        );
 
       allow update: if isActive()
-        && resource.data.user_id == currentUserId()
-        && request.resource.data.user_id == resource.data.user_id
-        && request.resource.data.group_id == resource.data.group_id
-        && isGroupMember(resource.data.group_id)
-        && request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly(['last_read_at', 'updated_at']);
+        && (
+          (
+            groupStatus(resource.data)
+            && groupStatus(request.resource.data)
+            && request.resource.data.group_id == resource.data.group_id
+            && request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['last_read_at', 'updated_at'])
+          )
+          ||
+          (
+            privateStatus(resource.data)
+            && privateStatus(request.resource.data)
+            && request.resource.data.userId == resource.data.userId
+            && request.resource.data.partnerId == resource.data.partnerId
+            && request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'username',
+                'partner_username',
+                'last_read_at',
+                'updated_at'
+              ])
+          )
+        );
 
       allow delete: if false;
     }
+
 
     // Demais coleções operacionais do JapanFlow.
     match /{collection}/{document=**} {

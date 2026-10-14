@@ -373,8 +373,9 @@ const StorageAuditPanel = () => {
 
                   <Button
                     onClick={deleteOrphans}
-                    disabled={deleting || confirmText !== 'APAGAR'}
+                    disabled
                     variant="destructive"
+                    title="Exclusão indisponível durante a migração para Firebase Storage"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
 

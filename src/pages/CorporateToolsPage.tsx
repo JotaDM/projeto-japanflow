@@ -38,7 +38,7 @@ import { db } from '@/lib/firebase';
 import { addDoc, collection, Timestamp } from 'firebase/firestore';
 
 const CorporateToolsPage = () => {
-  const { currentUser, users } = useApp();
+  const { currentUser, authenticatedUser, users } = useApp();
   const corporate = useCorporate();
   const featPerms = useFeaturePermissions();
   const baseAdmin = currentUser?.role === 'admin';
@@ -113,11 +113,16 @@ body { font-family: 'Segoe UI', Arial, sans-serif; color: #111; background: #fff
 
   // Bulk Announcement
   const handleBulkSend = async () => {
+    if (!authenticatedUser?.id) {
+      toast.error('Sessão inválida. Faça login novamente.');
+      return;
+    }
+
     if (!bulkMsg.trim()) return;
     const employees = users.filter((u) => u.role === 'employee');
     for (const emp of employees) {
       await addDoc(collection(db, 'messages'), {
-        senderId: currentUser.id,
+        senderId: authenticatedUser.id,
         receiverId: emp.id,
         content: `📢 ${bulkMsg.trim()}`,
         timestamp: Timestamp.now(),
