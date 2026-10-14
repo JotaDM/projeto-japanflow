@@ -7,7 +7,7 @@ import {
 } from '@firebase/rules-unit-testing';
 
 const env = await initializeTestEnvironment({
-  projectId: 'demo-japanflow-groups-qa',
+  projectId: 'demo-japanflow-qa',
   firestore: { host: '127.0.0.1', port: 8085, rules: fs.readFileSync('firestore.rules', 'utf8') },
   storage: { host: '127.0.0.1', port: 9199, rules: fs.readFileSync('storage.rules', 'utf8') },
 });
