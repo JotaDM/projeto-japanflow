@@ -45,27 +45,19 @@ service cloud.firestore {
     match /auth_links/{uid} {
       allow read: if isActive()
         && (request.auth.uid == uid || isAdmin());
-
       allow create, update, delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow read: if isActive();
-
       allow create, delete: if isAdmin();
-
       allow update: if isAdmin()
         || (
           isActive()
           && currentUserId() == userId
           && request.resource.data.diff(resource.data)
             .affectedKeys()
-            .hasOnly([
-              'name',
-              'avatar',
-              'backgroundColor',
-              'updated_at'
-            ])
+            .hasOnly(['name', 'avatar', 'backgroundColor', 'updated_at'])
         );
     }
 
@@ -97,13 +89,11 @@ service cloud.firestore {
     match /system_notifications/{notificationId} {
       allow read: if isActive()
         && resource.data.recipient_user_id == currentUserId();
-
       allow update: if isActive()
         && resource.data.recipient_user_id == currentUserId()
         && request.resource.data.diff(resource.data)
           .affectedKeys()
           .hasOnly(['read']);
-
       allow create, delete: if false;
     }
 
@@ -116,7 +106,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Mensagens privadas: acesso limitado aos participantes.
+    // Mensagens privadas: apenas remetente e destinatário.
     match /messages/{messageId} {
       function participant(data) {
         return isActive()
@@ -127,16 +117,13 @@ service cloud.firestore {
       }
 
       allow get: if participant(resource.data);
-
       allow list: if participant(resource.data)
         && request.query.limit <= 100;
-
       allow create: if isActive()
         && request.resource.data.senderId == currentUserId()
         && request.resource.data.receiverId is string
         && request.resource.data.receiverId != currentUserId()
         && request.resource.data.content is string;
-
       allow update: if participant(resource.data)
         && request.resource.data.senderId == resource.data.senderId
         && request.resource.data.receiverId == resource.data.receiverId
@@ -155,12 +142,10 @@ service cloud.firestore {
               .hasOnly(['read'])
           )
         );
-
       allow delete: if false;
     }
 
-    
-    // GROUPS-4: autorização de grupos e mensagens.
+    // Autorização dos grupos.
     function groupPath(groupId) {
       return /databases/$(database)/documents/custom_groups/$(groupId);
     }
@@ -178,10 +163,8 @@ service cloud.firestore {
 
     match /custom_groups/{groupId} {
       allow get: if isGroupMember(groupId);
-
       allow list: if isActive()
         && currentUserId() in resource.data.participant_ids;
-
       allow create: if isActive()
         && request.resource.data.created_by == currentUserId()
         && request.resource.data.participant_ids is list
@@ -190,28 +173,22 @@ service cloud.firestore {
         && request.resource.data.participant_ids.size() <= 100
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0;
-
-      // Alterações de membros exigirão um fluxo administrativo próprio.
       allow update: if false;
       allow delete: if isGroupCreator(groupId);
     }
 
     match /group_messages/{messageId} {
       allow get: if isGroupMember(resource.data.group_id);
-
       allow list: if isGroupMember(resource.data.group_id)
         && request.query.limit <= 100;
-
       allow create: if isActive()
         && request.resource.data.group_id is string
         && isGroupMember(request.resource.data.group_id)
         && request.resource.data.sender_id == currentUserId()
-        && request.resource.data.sender_username ==
-          get(currentUserPath()).data.username
+        && request.resource.data.sender_username == get(currentUserPath()).data.username
         && request.resource.data.content is string
         && request.resource.data.deleted == false
         && request.resource.data.edited == false;
-
       allow update: if isGroupMember(resource.data.group_id)
         && resource.data.sender_id == currentUserId()
         && resource.data.deleted == false
@@ -233,15 +210,16 @@ service cloud.firestore {
             && request.resource.data.content == 'Mensagem apagada'
           )
         );
-
       allow delete: if false;
     }
 
+    // Compatibilidade com status de leitura de chats privados e grupos.
     match /chat_read_status/{statusId} {
       function groupStatus(data) {
         return 'user_id' in data
           && data.user_id == currentUserId()
           && 'group_id' in data
+          && data.group_id is string
           && isGroupMember(data.group_id);
       }
 
@@ -255,15 +233,15 @@ service cloud.firestore {
       allow get: if isActive()
         && (groupStatus(resource.data) || privateStatus(resource.data));
 
+      // A consulta do useGroupUnread filtra por user_id, sem group_id.
+      // Limitar a registros do proprio usuario evita depender da adesao
+      // ao grupo como filtro de uma consulta de colecao.
       allow list: if isActive()
         && request.query.limit <= 100
-        && groupStatus(resource.data);
+        && resource.data.user_id == currentUserId();
 
       allow create: if isActive()
-        && (
-          groupStatus(request.resource.data)
-          || privateStatus(request.resource.data)
-        );
+        && (groupStatus(request.resource.data) || privateStatus(request.resource.data));
 
       allow update: if isActive()
         && (
@@ -283,20 +261,13 @@ service cloud.firestore {
             && request.resource.data.partnerId == resource.data.partnerId
             && request.resource.data.diff(resource.data)
               .affectedKeys()
-              .hasOnly([
-                'username',
-                'partner_username',
-                'last_read_at',
-                'updated_at'
-              ])
+              .hasOnly(['username', 'partner_username', 'last_read_at', 'updated_at'])
           )
         );
-
       allow delete: if false;
     }
 
-
-    // Demais coleções operacionais do JapanFlow.
+    // Colecoes operacionais nao cobertas pelas regras especificas.
     match /{collection}/{document=**} {
       allow read, write: if isActive()
         && collection != 'users'
