@@ -1,4 +1,3 @@
-
 import fs from 'node:fs';
 import path from 'node:path';
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
@@ -28,14 +27,15 @@ const users = usersSnapshot.docs.map((doc) => ({
   username: String(doc.data().username || '').trim(),
 }));
 
-const normalize = (value) => String(value || '').trim().toLowerCase();
+const normalize = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 function resolveUser(value) {
   const input = String(value || '').trim();
   const matches = users.filter(
-    (user) =>
-      user.id === input ||
-      (user.username && normalize(user.username) === normalize(input))
+    (user) => user.id === input || (user.username && normalize(user.username) === normalize(input))
   );
 
   const ids = [...new Set(matches.map((user) => user.id))];
@@ -51,13 +51,9 @@ for (const doc of groupsSnapshot.docs) {
 
   backup.push({ id: doc.id, data });
 
-  const participants = Array.isArray(data.participants)
-    ? data.participants
-    : [];
+  const participants = Array.isArray(data.participants) ? data.participants : [];
 
-  const existingIds = Array.isArray(data.participant_ids)
-    ? data.participant_ids
-    : [];
+  const existingIds = Array.isArray(data.participant_ids) ? data.participant_ids : [];
 
   const creatorId = resolveUser(data.created_by);
   const resolved = participants.map(resolveUser);
@@ -75,10 +71,7 @@ for (const doc of groupsSnapshot.docs) {
 
   const participantIds = [...new Set([...resolved, creatorId])].sort();
 
-  if (
-    JSON.stringify([...existingIds].sort()) !==
-    JSON.stringify(participantIds)
-  ) {
+  if (JSON.stringify([...existingIds].sort()) !== JSON.stringify(participantIds)) {
     changes.push({
       id: doc.id,
       name: data.name || '',
@@ -91,20 +84,21 @@ const backupDir = path.resolve('local-backups');
 fs.mkdirSync(backupDir, { recursive: true });
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const backupFile = path.join(
-  backupDir,
-  `custom-groups-${timestamp}.json`
-);
+const backupFile = path.join(backupDir, `custom-groups-${timestamp}.json`);
 
 fs.writeFileSync(
   backupFile,
-  JSON.stringify({
-    projectId,
-    createdAt: new Date().toISOString(),
-    groups: backup,
-    changes,
-    problems,
-  }, null, 2)
+  JSON.stringify(
+    {
+      projectId,
+      createdAt: new Date().toISOString(),
+      groups: backup,
+      changes,
+      problems,
+    },
+    null,
+    2
+  )
 );
 
 console.log('\n=== GROUPS MIGRATION ===');
