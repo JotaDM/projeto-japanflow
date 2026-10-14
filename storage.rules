@@ -3,6 +3,11 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+
+    // ========================================
+    // AUTENTICAÇÃO E IDENTIDADE
+    // ========================================
+
     function signedIn() {
       return request.auth != null;
     }
@@ -26,6 +31,10 @@ service firebase.storage {
         && firestore.get(linkPath()).data.role == 'admin';
     }
 
+    // ========================================
+    // VALIDAÇÃO DE UPLOADS
+    // ========================================
+
     function validUpload() {
       return request.resource != null
         && request.resource.size > 0
@@ -37,47 +46,90 @@ service firebase.storage {
         );
     }
 
-    function isParticipant(a, b) {
+    // ========================================
+    // AUTORIZAÇÃO DE CHAT PRIVADO
+    // ========================================
+
+    function isParticipant(userA, userB) {
       return activeUser()
-        && (currentUserId() == a || currentUserId() == b);
+        && (
+          currentUserId() == userA
+          || currentUserId() == userB
+        );
     }
 
-    // Novos anexos privados: acesso apenas aos dois participantes.
     match /attachments/chat/private/{userA}/{userB}/{filePath=**} {
       allow read: if isParticipant(userA, userB);
+
       allow create: if isParticipant(userA, userB)
         && resource == null
         && validUpload();
+
       allow update: if false;
+
       allow delete: if adminUser();
     }
 
-    // Arquivos históricos sem identificação dos participantes.
-    // Ainda exigem migração de metadados e autorização.
+    // Arquivos históricos sem participantes identificados:
+    // bloqueados até conclusão da migração.
     match /attachments/chat/private/{fileName} {
       allow read, write: if false;
     }
 
-    // Grupos: política temporária, ainda sem isolamento por membros.
+    // ========================================
+    // AUTORIZAÇÃO DE CHAT EM GRUPO
+    // ========================================
+
+    function groupPath(groupId) {
+      return /databases/(default)/documents/custom_groups/$(groupId);
+    }
+
+    function isGroupMember(groupId) {
+      return activeUser()
+        && firestore.exists(groupPath(groupId))
+        && currentUserId() in
+          firestore.get(groupPath(groupId)).data.participant_ids;
+    }
+
     match /attachments/chat/groups/{groupId}/{filePath=**} {
-      allow read: if activeUser();
-      allow create: if activeUser()
+
+      // Apenas membros podem acessar anexos.
+      allow read: if isGroupMember(groupId);
+
+      // Apenas membros podem enviar arquivos válidos.
+      allow create: if isGroupMember(groupId)
         && resource == null
         && validUpload();
+
+      // Não permitir substituição de arquivos.
       allow update: if false;
+
+      // Exclusão administrativa.
       allow delete: if adminUser();
     }
 
-    // Demais anexos operacionais.
+    // ========================================
+    // ANEXOS OPERACIONAIS DO JAPANFLOW
+    // ========================================
+
     match /attachments/{folder}/{filePath=**} {
-      allow read: if activeUser() && folder != 'chat';
+      allow read: if activeUser()
+        && folder != 'chat';
+
       allow create: if activeUser()
         && folder != 'chat'
         && resource == null
         && validUpload();
+
       allow update: if false;
-      allow delete: if adminUser() && folder != 'chat';
+
+      allow delete: if adminUser()
+        && folder != 'chat';
     }
+
+    // ========================================
+    // BLOQUEIO PADRÃO
+    // ========================================
 
     match /{allPaths=**} {
       allow read, write: if false;

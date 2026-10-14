@@ -159,6 +159,106 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    
+    // GROUPS-4: autorização de grupos e mensagens.
+    function groupPath(groupId) {
+      return /databases/$(database)/documents/custom_groups/$(groupId);
+    }
+
+    function isGroupMember(groupId) {
+      return isActive()
+        && exists(groupPath(groupId))
+        && currentUserId() in get(groupPath(groupId)).data.participant_ids;
+    }
+
+    function isGroupCreator(groupId) {
+      return isGroupMember(groupId)
+        && get(groupPath(groupId)).data.created_by == currentUserId();
+    }
+
+    match /custom_groups/{groupId} {
+      allow get: if isGroupMember(groupId);
+
+      allow list: if isActive()
+        && currentUserId() in resource.data.participant_ids;
+
+      allow create: if isActive()
+        && request.resource.data.created_by == currentUserId()
+        && request.resource.data.participant_ids is list
+        && currentUserId() in request.resource.data.participant_ids
+        && request.resource.data.participant_ids.size() > 0
+        && request.resource.data.participant_ids.size() <= 100
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+
+      // Alterações de membros exigirão um fluxo administrativo próprio.
+      allow update: if false;
+      allow delete: if isGroupCreator(groupId);
+    }
+
+    match /group_messages/{messageId} {
+      allow get: if isGroupMember(resource.data.group_id);
+
+      allow list: if isGroupMember(resource.data.group_id)
+        && request.query.limit <= 100;
+
+      allow create: if isActive()
+        && request.resource.data.group_id is string
+        && isGroupMember(request.resource.data.group_id)
+        && request.resource.data.sender_id == currentUserId()
+        && request.resource.data.sender_username ==
+          get(currentUserPath()).data.username
+        && request.resource.data.content is string
+        && request.resource.data.deleted == false
+        && request.resource.data.edited == false;
+
+      allow update: if isGroupMember(resource.data.group_id)
+        && resource.data.sender_id == currentUserId()
+        && resource.data.deleted == false
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['content', 'edited', 'deleted', 'updated_at'])
+        && request.resource.data.sender_id == resource.data.sender_id
+        && request.resource.data.group_id == resource.data.group_id
+        && request.resource.data.sender_username == resource.data.sender_username
+        && (
+          (
+            request.resource.data.deleted == false
+            && request.resource.data.edited == true
+            && request.resource.data.content is string
+          )
+          ||
+          (
+            request.resource.data.deleted == true
+            && request.resource.data.content == 'Mensagem apagada'
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    match /chat_read_status/{statusId} {
+      allow get, list: if isActive()
+        && resource.data.user_id == currentUserId()
+        && request.query.limit <= 100;
+
+      allow create: if isActive()
+        && request.resource.data.user_id == currentUserId()
+        && request.resource.data.group_id is string
+        && isGroupMember(request.resource.data.group_id);
+
+      allow update: if isActive()
+        && resource.data.user_id == currentUserId()
+        && request.resource.data.user_id == resource.data.user_id
+        && request.resource.data.group_id == resource.data.group_id
+        && isGroupMember(resource.data.group_id)
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['last_read_at', 'updated_at']);
+
+      allow delete: if false;
+    }
+
     // Demais coleções operacionais do JapanFlow.
     match /{collection}/{document=**} {
       allow read, write: if isActive()
@@ -168,6 +268,9 @@ service cloud.firestore {
         && collection != 'user_tab_permissions'
         && collection != 'task_permissions'
         && collection != 'app_settings'
+        && collection != 'custom_groups'
+        && collection != 'group_messages'
+        && collection != 'chat_read_status'
         && collection != 'freight_destinations'
         && collection != 'system_notifications'
         && collection != 'system_runtime'

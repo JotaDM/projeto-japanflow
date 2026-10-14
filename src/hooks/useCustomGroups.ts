@@ -31,56 +31,48 @@ const toIso = (value: any): string => {
   return '';
 };
 
-
-
 export function useCustomGroups() {
   const [groups, setGroups] = useState<CustomGroup[]>([]);
   const { authenticatedUser } = useApp();
   const authenticatedUserId = authenticatedUser?.id ?? null;
- 
+
   useEffect(() => {
-  if (!authenticatedUserId) {
-    setGroups([]);
-    return;
-  }
-
-  const groupsQuery = query(
-    collection(db, 'custom_groups'),
-    where('participant_ids', 'array-contains', authenticatedUserId)
-  );
-
-  return onSnapshot(
-    groupsQuery,
-    (snapshot) => {
-      const result = snapshot.docs.map((groupDoc) => {
-        const data = groupDoc.data();
-
-        return {
-          id: groupDoc.id,
-          name: data.name || '',
-          createdBy: data.created_by || '',
-          participants: Array.isArray(data.participants) ? data.participants : [],
-          participantIds: Array.isArray(data.participant_ids)
-            ? data.participant_ids
-            : [],
-          createdAt: toIso(data.created_at),
-        };
-      });
-
-      result.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-
-      setGroups(result);
-    },
-    (error) => {
-      console.error('Erro ao carregar grupos:', error);
+    if (!authenticatedUserId) {
       setGroups([]);
+      return;
+    }
+
+    const groupsQuery = query(
+      collection(db, 'custom_groups'),
+      where('participant_ids', 'array-contains', authenticatedUserId)
+    );
+
+    return onSnapshot(
+      groupsQuery,
+      (snapshot) => {
+        const result = snapshot.docs.map((groupDoc) => {
+          const data = groupDoc.data();
+
+          return {
+            id: groupDoc.id,
+            name: data.name || '',
+            createdBy: data.created_by || '',
+            participants: Array.isArray(data.participants) ? data.participants : [],
+            participantIds: Array.isArray(data.participant_ids) ? data.participant_ids : [],
+            createdAt: toIso(data.created_at),
+          };
+        });
+
+        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setGroups(result);
+      },
+      (error) => {
+        console.error('Erro ao carregar grupos:', error);
+        setGroups([]);
       }
     );
   }, [authenticatedUserId]);
-
 
   const createGroup = useCallback(
     async (name: string, participants: string[], createdBy: string) => {
@@ -91,6 +83,14 @@ export function useCustomGroups() {
         username: String(userDoc.data().username || '').trim(),
         active: userDoc.data().active !== false,
       }));
+
+      if (!authenticatedUserId) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      if (createdBy !== authenticatedUserId) {
+        throw new Error('O criador do grupo deve ser o usuário autenticado');
+      }
 
       const participantIds = new Set<string>();
 
@@ -127,7 +127,7 @@ export function useCustomGroups() {
         updated_at: Timestamp.now(),
       });
     },
-    []
+    [authenticatedUserId]
   );
 
   const deleteGroup = useCallback(async (id: string) => {

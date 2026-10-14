@@ -35,8 +35,7 @@ export function useGroupUnread(
   const [messages, setMessages] = useState<GroupMessageRow[]>([]);
   const [readStatuses, setReadStatuses] = useState<any[]>([]);
   const groupIdsKey = accessibleGroupIds.join('|');
-  const groupIds = groupIdsKey.split('|').filter(Boolean).slice(0, 30);
-  
+
   useEffect(() => {
     if (!currentUserId || !groupIdsKey) {
       setMessages([]);
