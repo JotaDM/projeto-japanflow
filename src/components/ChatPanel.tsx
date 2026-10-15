@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { User, ChatMessage } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,9 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const previousChatIdRef = useRef<string | null>(null);
+  const userInteractedWithScrollRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
@@ -54,14 +57,50 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     return getMessagesForChat(currentUser.id, otherUser.id);
   }, [currentUser?.id, otherUser.id, getMessagesForChat]);
 
+  const chatId = [currentUser?.id, otherUser.id].sort().join(':');
+
+  // A rolagem programática não deve ser interpretada como uma ação do usuário.
+  const scrollToBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container || !shouldAutoScrollRef.current) return;
+
+    container.scrollTop = container.scrollHeight;
+  };
+
+  // Posiciona a conversa no final assim que as mensagens são renderizadas.
+  useLayoutEffect(() => {
+    if (previousChatIdRef.current !== chatId) {
+      previousChatIdRef.current = chatId;
+      shouldAutoScrollRef.current = true;
+      userInteractedWithScrollRef.current = false;
+    }
+
+    scrollToBottom();
+
+    // Reconfere a posição após o navegador recalcular o layout.
+    const frame = requestAnimationFrame(scrollToBottom);
+    return () => cancelAnimationFrame(frame);
+  }, [chatId, messages, isTyping]);
+
+  // Observa a altura de TODA a conversa, inclusive alterações após o carregamento
+  // de imagens e fontes. Observar apenas o contêiner com scroll não é suficiente.
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container) return;
+    const content = container?.firstElementChild;
+    if (!container || !content || typeof ResizeObserver === 'undefined') return;
 
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight;
+    const observer = new ResizeObserver(() => {
+      scrollToBottom();
     });
-  }, [messages.length, isTyping]);
+
+    observer.observe(content);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [chatId]);
+
+  const handleUserScroll = () => {
+    userInteractedWithScrollRef.current = true;
+  };
 
   useEffect(() => {
     return () => {
@@ -465,16 +504,32 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
 
       <div
         ref={messagesContainerRef}
-        className="min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto p-4"
-      >
-        {messages.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma mensagem ainda. Comece a conversa!
-          </p>
-        )}
+        onWheel={handleUserScroll}
+        onTouchStart={handleUserScroll}
+        onPointerDown={handleUserScroll}
+        onKeyDown={handleUserScroll}
+        onScroll={(event) => {
+          // Eventos de scroll disparados pelo código ou por mudanças de layout
+          // não podem desativar a rolagem automática.
+          if (!userInteractedWithScrollRef.current) return;
 
-        {messages.map(renderMessage)}
-        {isTyping && <TypingBubble label={otherUser.name} />}
+          const container = event.currentTarget;
+          const distanceFromBottom =
+            container.scrollHeight - container.scrollTop - container.clientHeight;
+          shouldAutoScrollRef.current = distanceFromBottom < 100;
+        }}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 [overflow-anchor:none]"
+      >
+        <div className="space-y-3">
+          {messages.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Nenhuma mensagem ainda. Comece a conversa!
+            </p>
+          )}
+
+          {messages.map(renderMessage)}
+          {isTyping && <TypingBubble label={otherUser.name} />}
+        </div>
       </div>
 
       <div className="flex shrink-0 items-end gap-2 border-t border-border/70 bg-card p-3 md:p-4">

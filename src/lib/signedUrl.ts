@@ -106,9 +106,15 @@ export async function getSignedUrl(
   try {
     return await authenticatedFileUrl(path);
   } catch (error) {
-    console.warn('[signedUrl] Firebase Storage indisponível:', path, error);
-    return isHttp
-      ? pathOrPublicUrl
-      : `${API_BASE_URL}/storage/file/${path.split('/').map(encodeURIComponent).join('/')}`;
+    console.error('[signedUrl] Falha ao carregar imagem privada:', {
+      path,
+      code:
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String(error.code)
+          : 'unknown',
+      error,
+    });
+
+    throw error;
   }
 }

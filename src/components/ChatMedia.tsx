@@ -11,28 +11,61 @@ interface SafeChatImageProps {
 }
 
 export const SafeChatImage = ({ src, alt, className, onClick }: SafeChatImageProps) => {
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(src || null);
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    setResolvedSrc(null);
     setFailed(false);
-    setResolvedSrc(src || null);
+    setLoading(true);
 
-    if (!src || (!src.startsWith('http') && !src.startsWith('attachments/'))) return;
+    if (!src) {
+      setLoading(false);
+      setFailed(true);
+      return;
+    }
 
-    void getSignedUrl(src)
+    getSignedUrl(src)
       .then((url) => {
-        if (!cancelled) setResolvedSrc(url);
+        if (cancelled) return;
+
+        if (!url) {
+          setFailed(true);
+        } else {
+          setResolvedSrc(url);
+        }
+
+        setLoading(false);
       })
-      .catch(() => {
-        if (!cancelled) setResolvedSrc(src);
+      .catch((error) => {
+        if (cancelled) return;
+
+        console.error('[ChatMedia] Erro ao resolver imagem:', error);
+
+        setFailed(true);
+        setLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
   }, [src]);
+
+  if (loading) {
+    return (
+      <div
+        className={cn(
+          'flex min-h-24 min-w-32 items-center justify-center rounded-xl bg-muted/25',
+          className
+        )}
+      >
+        <span className="text-xs text-muted-foreground">Carregando imagem...</span>
+      </div>
+    );
+  }
 
   if (!resolvedSrc || failed) {
     return (
