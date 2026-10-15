@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { collection, onSnapshot, query, where, limit } from 'firebase/firestore';
 
 import { db } from '@/lib/firebase';
-import { useChatPreferences } from '@/hooks/useChatPreferences';
+import { useChatPreferences } from '@/funcionalidades/chat/hooks/useChatPreferences';
 
 interface MessageData {
   senderId: string;

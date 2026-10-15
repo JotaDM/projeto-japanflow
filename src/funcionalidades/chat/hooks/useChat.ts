@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { useApp } from '@/contexts/AppContext';
 import { ChatMessage } from '@/types';
-import { sendPushToUser } from './usePushNotifications';
+import { sendPushToUser } from '@/hooks/usePushNotifications';
 
 interface MessageData {
   content: string;

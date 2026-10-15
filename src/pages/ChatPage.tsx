@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, BellOff, MessageSquare, Pin, Star, UsersRound } from 'lucide-react';
 
 import { useApp } from '@/contexts/AppContext';
-import ChatPanel from '@/components/ChatPanel';
+import ChatPanel from '@/funcionalidades/chat/componentes/ChatPanel';
 import { User, Sector, SECTOR_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
-import { useChatPreviews } from '@/hooks/useChatPreviews';
+import { useChatPreviews } from '@/funcionalidades/chat/hooks/useChatPreviews';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,9 +16,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ChatAvatar } from '@/components/ChatMedia';
-import { usePrivateTypingUsers } from '@/hooks/useTypingPresence';
-import { ChatPreference, useChatPreferences } from '@/hooks/useChatPreferences';
+import { ChatAvatar } from '@/funcionalidades/chat/componentes/ChatMedia';
+import { usePrivateTypingUsers } from '@/funcionalidades/chat/hooks/useTypingPresence';
+import {
+  ChatPreference,
+  useChatPreferences,
+} from '@/funcionalidades/chat/hooks/useChatPreferences';
 
 interface ConversationRowProps {
   user: User;

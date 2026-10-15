@@ -19,10 +19,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useChat } from '@/hooks/useChat';
-import { usePrivateTyping, usePrivateTypingUsers } from '@/hooks/useTypingPresence';
+import { useChat } from '@/funcionalidades/chat/hooks/useChat';
+import {
+  usePrivateTyping,
+  usePrivateTypingUsers,
+} from '@/funcionalidades/chat/hooks/useTypingPresence';
 import { uploadImage } from '@/lib/uploadImage';
-import { ChatAvatar, SafeChatImage, TypingBubble } from '@/components/ChatMedia';
+import {
+  ChatAvatar,
+  SafeChatImage,
+  TypingBubble,
+} from '@/funcionalidades/chat/componentes/ChatMedia';
 
 interface ChatPanelProps {
   otherUser: User;

@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { SECTOR_LABELS } from '@/types';
 import { uploadImage } from '@/lib/uploadImage';
 import { changeOwnPassword } from '@/lib/authService';
-import { ChatAvatar } from '@/components/ChatMedia';
+import { ChatAvatar } from '@/funcionalidades/chat/componentes/ChatMedia';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 
 const ProfilePage = () => {

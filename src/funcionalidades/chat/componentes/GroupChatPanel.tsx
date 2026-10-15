@@ -5,10 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Send, Paperclip, Image, FileText, Pencil, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useGroupChat, GroupMessage } from '@/hooks/useGroupChat';
-import { useGroupTyping } from '@/hooks/useTypingPresence';
+import { useGroupChat, GroupMessage } from '@/funcionalidades/chat/hooks/useGroupChat';
+import { useGroupTyping } from '@/funcionalidades/chat/hooks/useTypingPresence';
 import { uploadImage } from '@/lib/uploadImage';
-import { SafeChatImage, TypingBubble } from '@/components/ChatMedia';
+import { SafeChatImage, TypingBubble } from '@/funcionalidades/chat/componentes/ChatMedia';
 
 interface GroupChatPanelProps {
   groupId: string;
