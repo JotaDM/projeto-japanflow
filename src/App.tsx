@@ -1,4 +1,3 @@
-
 import { Suspense, lazy } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -35,14 +34,8 @@ const queryClient = new QueryClient();
 
 // Exibido temporariamente enquanto uma página é carregada
 const CarregandoPagina = () => (
-  <div
-    role="status"
-    aria-live="polite"
-    className="flex min-h-[40vh] items-center justify-center"
-  >
-    <span className="text-sm text-muted-foreground">
-      Carregando página...
-    </span>
+  <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center">
+    <span className="text-sm text-muted-foreground">Carregando página...</span>
   </div>
 );
 
@@ -60,10 +53,7 @@ const App = () => (
               <Route element={<AppLayout />}>
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/monitor" element={<AdminMonitorPage />} />
-                <Route
-                  path="/admin/employee/:employeeId"
-                  element={<EmployeeBoardPage />}
-                />
+                <Route path="/admin/employee/:employeeId" element={<EmployeeBoardPage />} />
                 <Route path="/board" element={<EmployeeBoardPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/corporate" element={<CorporateToolsPage />} />
@@ -77,10 +67,7 @@ const App = () => (
                 <Route path="/encomendas-balcao" element={<CounterOrdersPage />} />
                 <Route path="/inventario" element={<InventoryPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
-                <Route
-                  path="/admin/backfill-images"
-                  element={<AdminBackfillImagesPage />}
-                />
+                <Route path="/admin/backfill-images" element={<AdminBackfillImagesPage />} />
                 <Route path="/documentos" element={<SharedDocsPage />} />
                 <Route path="/politicas-internas" element={<InternalPoliciesPage />} />
                 <Route path="/historico-conversas" element={<ChatHistoryPage />} />
