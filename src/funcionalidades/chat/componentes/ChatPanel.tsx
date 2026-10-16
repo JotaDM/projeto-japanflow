@@ -43,7 +43,6 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -54,6 +53,10 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const isStartingRecordingRef = useRef(false);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const stopRequestedByUserRef = useRef(false);
 
   const { isOtherTyping, pingTyping, stopTyping } = usePrivateTyping(currentUser?.id, otherUser.id);
   const privateTypingUserIds = usePrivateTypingUsers(currentUser?.id);
@@ -111,17 +114,23 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
 
   useEffect(() => {
     return () => {
-      if (mediaRecorder?.state === 'recording') {
-        try {
-          mediaRecorder.stop();
-        } catch {
-          // Ignora falha de encerramento durante desmontagem.
-        }
+      const recorder = mediaRecorderRef.current;
+
+      if (recorder && recorder.state !== 'inactive') {
+        // Não envia uma gravação ao sair da conversa.
+        recorder.onstop = null;
+        recorder.stop();
       }
+
+      mediaRecorderRef.current = null;
+      recordingStartedAtRef.current = null;
+      stopRequestedByUserRef.current = false;
+
       microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
+
       microphoneStreamRef.current = null;
     };
-  }, [mediaRecorder]);
+  }, []);
 
   if (!currentUser) return null;
 
@@ -188,7 +197,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       return;
     }
 
-    // Mantém compatibilidade com anexos antigos. Imagens novas já vão para o R2.
+    // Mantém compatibilidade com anexos antigos; imagens novas usam Firebase Storage.
     if (file.size > 700 * 1024) {
       toast.error('Arquivo muito grande para o chat (máx. 700 KB por enquanto)');
       return;
@@ -235,11 +244,18 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   };
 
   const toggleRecording = async () => {
-    if (recording && mediaRecorder) {
-      if (mediaRecorder.state === 'recording') mediaRecorder.stop();
-      setRecording(false);
+    // Usa a referência síncrona para evitar uma segunda gravação enquanto
+    // o React ainda não terminou de atualizar o estado visual do botão.
+    const activeRecorder = mediaRecorderRef.current;
+    if (activeRecorder) {
+      if (activeRecorder.state === 'recording') {
+        stopRequestedByUserRef.current = true;
+        activeRecorder.stop();
+      }
       return;
     }
+
+    if (isStartingRecordingRef.current) return;
 
     if (!window.isSecureContext) {
       toast.error('O microfone só funciona em HTTPS ou localhost.');
@@ -256,6 +272,8 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       return;
     }
 
+    isStartingRecordingRef.current = true;
+
     try {
       if (navigator.permissions?.query) {
         try {
@@ -264,13 +282,11 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           });
 
           if (permission.state === 'denied') {
-            toast.error(
-              'O microfone está bloqueado. Clique no cadeado ao lado do endereço e altere Microfone para Permitir.'
-            );
+            toast.error('Permita o uso do microfone nas configurações deste site.');
             return;
           }
         } catch {
-          // Alguns navegadores não implementam Permissions API para microfone.
+          // A Permissions API não oferece suporte uniforme ao microfone.
         }
       }
 
@@ -283,35 +299,53 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       });
 
       microphoneStreamRef.current = stream;
+      const activeAudioTrack = stream.getAudioTracks().find((track) => track.readyState === 'live');
+      if (!activeAudioTrack || !activeAudioTrack.enabled) {
+        throw new Error('Nenhuma faixa de áudio ativa foi disponibilizada pelo microfone.');
+      }
 
       const preferredMimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
       const mimeType = preferredMimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
-
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
+      let recorderFailed = false;
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
       };
 
-      recorder.onerror = () => {
-        setRecording(false);
-        stopMicrophoneStream();
-        toast.error('A gravação do áudio foi interrompida pelo navegador.');
+      recorder.onerror = (event) => {
+        console.error('Erro durante a gravação de áudio:', event);
+        recorderFailed = true;
+        toast.error('A gravação de áudio foi interrompida. Tente novamente.');
+        if (recorder.state !== 'inactive') recorder.stop();
       };
 
       recorder.onstop = () => {
+        const elapsedMs =
+          recordingStartedAtRef.current === null ? 0 : Date.now() - recordingStartedAtRef.current;
+        const wasManuallyStopped = stopRequestedByUserRef.current;
         const finalMimeType = recorder.mimeType || mimeType || 'audio/webm';
         const blob = new Blob(chunks, { type: finalMimeType });
 
+        if (mediaRecorderRef.current === recorder) mediaRecorderRef.current = null;
+        recordingStartedAtRef.current = null;
+        stopRequestedByUserRef.current = false;
         setRecording(false);
-        setMediaRecorder(null);
         stopMicrophoneStream();
 
-        if (blob.size === 0) {
-          toast.error('Nenhum áudio foi capturado. Tente novamente.');
+        // Não envia arquivos quando o dispositivo desconecta, quando ocorre
+        // erro ou quando o usuário fecha a conversa sem concluir a gravação.
+        if (recorderFailed || !wasManuallyStopped) {
+          if (!recorderFailed)
+            toast.error('O microfone foi interrompido antes do fim da gravação.');
+          return;
+        }
+
+        if (elapsedMs < 1000 || blob.size < 1000) {
+          toast.error('Áudio muito curto ou vazio. Grave por pelo menos 1 segundo.');
           return;
         }
 
@@ -322,11 +356,13 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
 
         const extension = finalMimeType.includes('ogg') ? 'ogg' : 'webm';
         const reader = new FileReader();
+        reader.onerror = () => toast.error('Não foi possível preparar o arquivo de áudio.');
         reader.onload = () => {
+          if (typeof reader.result !== 'string') return;
           void sendMessage({
             receiverId: otherUser.id,
             content: '🎤 Áudio',
-            attachmentUrl: reader.result as string,
+            attachmentUrl: reader.result,
             attachmentType: 'audio',
             attachmentName: `audio.${extension}`,
           });
@@ -334,15 +370,22 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
         reader.readAsDataURL(blob);
       };
 
-      recorder.start();
-      setMediaRecorder(recorder);
+      // Divide em partes para que o navegador entregue dados durante a gravação.
+      recorder.start(250);
+      recordingStartedAtRef.current = Date.now();
+      stopRequestedByUserRef.current = false;
+      mediaRecorderRef.current = recorder;
       setRecording(true);
     } catch (error) {
-      console.error('Erro ao acessar microfone:', error);
+      console.error('Erro ao acessar ou iniciar microfone:', error);
+      mediaRecorderRef.current = null;
+      recordingStartedAtRef.current = null;
+      stopRequestedByUserRef.current = false;
       stopMicrophoneStream();
-      setMediaRecorder(null);
       setRecording(false);
       toast.error(microphoneErrorMessage(error));
+    } finally {
+      isStartingRecordingRef.current = false;
     }
   };
 
