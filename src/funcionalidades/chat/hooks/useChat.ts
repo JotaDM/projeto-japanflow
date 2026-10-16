@@ -13,6 +13,8 @@ import {
   Timestamp,
   where,
   limit,
+  serverTimestamp,
+  type FieldValue,
   type QueryDocumentSnapshot,
   type DocumentData,
 } from 'firebase/firestore';
@@ -23,7 +25,7 @@ interface MessageData {
   content: string;
   senderId: string;
   receiverId: string;
-  timestamp: Timestamp;
+  timestamp: Timestamp | FieldValue;
   read: boolean;
   attachmentUrl?: string | null;
   attachmentType?: 'image' | 'file' | 'audio' | null;
@@ -53,7 +55,7 @@ function messageTime(value: unknown): number {
 }
 
 function toChatMessage(snapshot: QueryDocumentSnapshot<DocumentData>): ChatMessage {
-  const data = snapshot.data() as MessageData;
+  const data = snapshot.data({ serverTimestamps: 'estimate' }) as MessageData;
   const time = messageTime(data.timestamp);
   return {
     id: snapshot.id,
@@ -82,7 +84,7 @@ export const useChat = () => {
         content: msg.content,
         senderId: currentUser.id,
         receiverId: msg.receiverId,
-        timestamp: Timestamp.now(),
+        timestamp: serverTimestamp(),
         read: false,
         attachmentUrl: msg.attachmentUrl ?? null,
         attachmentType: msg.attachmentType ?? null,
@@ -187,7 +189,19 @@ export const useChat = () => {
         return difference || a.id.localeCompare(b.id);
       });
 
-      setMessages(sortedDocs.map(toChatMessage));
+      const orderedMessages = sortedDocs.map(toChatMessage);
+
+      console.table(
+        orderedMessages.slice(-12).map((message, index) => ({
+          posicao: index,
+          id: message.id.slice(0, 8),
+          remetente: message.senderId,
+          horarioExato: message.timestamp,
+          conteudo: message.content.slice(0, 35),
+        }))
+      );
+
+      setMessages(orderedMessages);
 
       for (const messageDoc of receivedDocs) {
         const data = messageDoc.data() as MessageData;
