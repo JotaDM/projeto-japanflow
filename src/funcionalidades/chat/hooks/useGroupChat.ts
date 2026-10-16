@@ -6,7 +6,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   Timestamp,
   updateDoc,
@@ -15,7 +14,7 @@ import {
   orderBy,
   limit,
 } from 'firebase/firestore';
-import { sendPushToUser } from '@/hooks/usePushNotifications';
+
 export interface GroupMessage {
   id: string;
   group_id: string;
@@ -30,16 +29,24 @@ export interface GroupMessage {
   created_at: string;
 }
 
-const toIso = (value: any): string => {
+const toIso = (value: unknown): string => {
   if (!value) return '';
-  if (typeof value?.toDate === 'function') {
-    return value.toDate().toISOString();
+
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof value.toDate === 'function'
+  ) {
+    return (value.toDate() as Date).toISOString();
   }
+
   if (typeof value === 'string') return value;
+
   return '';
 };
 
-const mapMessage = (id: string, data: any): GroupMessage => ({
+const mapMessage = (id: string, data: Record<string, any>): GroupMessage => ({
   id,
   group_id: data.group_id || '',
   sender_id: data.sender_id || '',
@@ -52,6 +59,20 @@ const mapMessage = (id: string, data: any): GroupMessage => ({
   deleted: data.deleted === true,
   created_at: toIso(data.created_at),
 });
+
+const sortMessages = (a: GroupMessage, b: GroupMessage): number => {
+  const timeA = Date.parse(a.created_at);
+  const timeB = Date.parse(b.created_at);
+
+  const validTimeA = Number.isFinite(timeA) ? timeA : 0;
+  const validTimeB = Number.isFinite(timeB) ? timeB : 0;
+
+  if (validTimeA !== validTimeB) {
+    return validTimeA - validTimeB;
+  }
+
+  return a.id.localeCompare(b.id);
+};
 
 export function useGroupChat(groupId: string | null) {
   const { authenticatedUser } = useApp();
@@ -79,9 +100,7 @@ export function useGroupChat(groupId: string | null) {
       (snapshot) => {
         const next = snapshot.docs
           .map((messageDoc) => mapMessage(messageDoc.id, messageDoc.data()))
-          .sort(
-            (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-          );
+          .sort(sortMessages);
 
         setMessages(next);
       },
@@ -96,7 +115,7 @@ export function useGroupChat(groupId: string | null) {
 
   const sendMessage = useCallback(
     async (
-      senderUsername: string,
+      _senderUsername: string,
       msg: {
         content: string;
         attachmentUrl?: string;
@@ -112,12 +131,10 @@ export function useGroupChat(groupId: string | null) {
 
       // O remetente é determinado pela sessão autenticada,
       // nunca pelo parâmetro recebido do componente.
-      const verifiedSenderUsername = authenticatedUsername;
-
       await addDoc(collection(db, 'group_messages'), {
         group_id: groupId,
         sender_id: authenticatedUserId,
-        sender_username: verifiedSenderUsername,
+        sender_username: authenticatedUsername,
         content: msg.content,
         attachment_url: msg.attachmentUrl ?? null,
         attachment_type: msg.attachmentType ?? null,
@@ -128,44 +145,8 @@ export function useGroupChat(groupId: string | null) {
         updated_at: Timestamp.now(),
       });
 
-      try {
-        const groupSnapshot = await getDoc(doc(db, 'custom_groups', groupId));
-
-        if (!groupSnapshot.exists()) return;
-
-        const groupData = groupSnapshot.data();
-
-        const participantIds: string[] = Array.isArray(groupData.participant_ids)
-          ? groupData.participant_ids
-          : [];
-
-        if (participantIds.length === 0) return;
-
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-
-        const matchingUsers = usersSnapshot.docs
-          .map((userDoc) => ({
-            id: userDoc.id,
-            username: String(userDoc.data().username || '').trim(),
-            active: userDoc.data().active !== false,
-          }))
-          .filter((user) => participantIds.includes(user.id));
-
-        for (const user of matchingUsers) {
-          if (user.id === authenticatedUserId || !user.active) {
-            continue;
-          }
-
-          void sendPushToUser(
-            user.id,
-            'Nova mensagem de grupo',
-            `${verifiedSenderUsername}: ${msg.content.substring(0, 100)}`,
-            '/chat'
-          );
-        }
-      } catch (error) {
-        console.warn('Falha ao enviar push do grupo:', error);
-      }
+      // Mensagens em grupo não disparam push externo.
+      // O acompanhamento ocorre pelo próprio JapanFlow.
     },
     [groupId, authenticatedUserId, authenticatedUsername]
   );
