@@ -15,8 +15,7 @@ import {
   orderBy,
   limit,
 } from 'firebase/firestore';
-import { sendPushToUser } from './usePushNotifications';
-
+import { sendPushToUser } from '@/hooks/usePushNotifications';
 export interface GroupMessage {
   id: string;
   group_id: string;
