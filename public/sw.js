@@ -5,31 +5,28 @@ self.addEventListener('push', function (event) {
   } catch {
     payload = {};
   }
-
-  const notification = payload.notification || {};
   const data = payload.data || {};
-  const notificationType = String(data.type || payload.type || '').toLowerCase();
-  const incomingTitle = notification.title || data.title || payload.title || '';
-  const incomingBody = notification.body || data.body || payload.body || 'Nova notificação';
-
-  // Bloqueia pushes de chat identificados por tipo (defesa adicional).
-  // O envio de mensagens também deve deixar de chamar a API FCM.
-  if (notificationType === 'chat_message' || notificationType === 'message') return;
+  const notification = payload.notification || {};
+  if (String(data.type || payload.type || '').toLowerCase() !== 'task') return;
 
   const requestedUrl = data.url || payload.url || '/';
   let targetUrl = self.location.origin + '/';
   try {
     const candidate = new URL(requestedUrl, self.location.origin);
-    if (candidate.origin === self.location.origin) targetUrl = candidate.href;
+    if (
+      candidate.origin === self.location.origin &&
+      ['http:', 'https:'].includes(candidate.protocol)
+    ) {
+      targetUrl = candidate.href;
+    }
   } catch {
-    // URL inválida: mantém a página inicial do próprio site.
+    /* Destino inválido: página inicial. */
   }
 
-  const body =
-    incomingTitle && incomingTitle !== 'JapanFlow'
-      ? incomingTitle + ' — ' + incomingBody
-      : incomingBody;
-  const tag = data.tag || payload.tag || `japanflow-${Date.now()}`;
+  const incomingTitle = notification.title || data.title || payload.title || 'JapanFlow';
+  const incomingBody = notification.body || data.body || payload.body || 'Nova tarefa';
+  const body = incomingTitle !== 'JapanFlow' ? `${incomingTitle} — ${incomingBody}` : incomingBody;
+  const tag = String(data.tag || payload.tag || `japanflow-${data.eventId || 'task'}`);
 
   event.waitUntil(
     self.registration.showNotification('JapanFlow', {
@@ -49,11 +46,15 @@ self.addEventListener('notificationclick', function (event) {
   let targetUrl = self.location.origin + '/';
   try {
     const candidate = new URL(requestedUrl, self.location.origin);
-    if (candidate.origin === self.location.origin) targetUrl = candidate.href;
+    if (
+      candidate.origin === self.location.origin &&
+      ['https:', 'http:'].includes(candidate.protocol)
+    ) {
+      targetUrl = candidate.href;
+    }
   } catch {
-    // URL inválida: mantém a página inicial.
+    /* Destino inválido. */
   }
-
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
@@ -62,7 +63,7 @@ self.addEventListener('notificationclick', function (event) {
           if ('navigate' in client) await client.navigate(targetUrl);
           if ('focus' in client) return client.focus();
         } catch {
-          // Tenta a próxima janela ou abre uma nova.
+          /* Prossegue para a próxima janela. */
         }
       }
       if (clients.openWindow) return clients.openWindow(targetUrl);

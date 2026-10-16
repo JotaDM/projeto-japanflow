@@ -319,18 +319,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addTask = useCallback(
     async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'statusHistory'>) => {
       // A tarefa precisa existir antes de qualquer notificação ser emitida.
-      await firebaseTasks.addTask(task);
+      const createdTaskId = await firebaseTasks.addTask(task);
       if (!task.assigneeId) return;
       await firebaseNotifications.addNotification(
         task.assigneeId,
         `Nova tarefa atribuída: ${task.title}`,
         'task_created'
       );
-      void Promise.resolve(sendPushToUser(task.assigneeId, 'Nova tarefa', task.title)).catch(
-        (error) => {
-          console.warn('Não foi possível enviar push da nova tarefa:', error);
-        }
-      );
+      void Promise.resolve(
+        sendPushToUser(
+          task.assigneeId,
+          'Nova tarefa',
+          task.title,
+          '/board',
+          `task-created-${createdTaskId}`
+        )
+      ).catch((error) => {
+        console.warn('Não foi possível enviar push da nova tarefa:', error);
+      });
     },
     [firebaseTasks, firebaseNotifications]
   );

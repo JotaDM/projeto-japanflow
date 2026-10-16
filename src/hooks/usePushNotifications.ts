@@ -14,38 +14,21 @@ const apiBaseUrl = () =>
   );
 
 async function authenticatedPost(path: string, payload: unknown) {
-  // O App pode renderizar antes do Firebase Auth terminar de restaurar a sessão.
-  // Esperamos essa hidratação antes de concluir que não há usuário autenticado.
   await auth.authStateReady();
-
   const firebaseUser = auth.currentUser;
-
-  if (!firebaseUser) {
-    throw new Error('Usuário Firebase não autenticado.');
-  }
-
+  if (!firebaseUser) throw new Error('Usuário Firebase não autenticado.');
   const baseUrl = apiBaseUrl();
-  if (!baseUrl) {
-    throw new Error('VITE_API_BASE_URL não configurado.');
-  }
-
-  const idToken = await firebaseUser.getIdToken();
-
+  if (!baseUrl) throw new Error('VITE_WEB_API_BASE_URL não configurada.');
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
+      Authorization: `Bearer ${await firebaseUser.getIdToken()}`,
     },
     body: JSON.stringify(payload),
   });
-
   const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data?.error || `Push API HTTP ${response.status}`);
-  }
-
+  if (!response.ok) throw new Error(data?.error || `Push API HTTP ${response.status}`);
   return data;
 }
 
@@ -54,6 +37,7 @@ async function registerCurrentBrowserToken(token: string) {
     token,
     platform: 'web',
     userAgent: navigator.userAgent,
+    origin: window.location.origin,
   });
 }
 
@@ -64,82 +48,48 @@ export function usePushNotifications() {
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
-
     async function setupPush() {
       try {
-        // Evita corrida entre o AppLayout e a restauração da sessão do Firebase Auth.
         await auth.authStateReady();
-
         if (cancelled) return;
-
-        if (!auth.currentUser) {
-          console.log('Push aguardando autenticação Firebase.');
-          return;
-        }
-
-        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-          console.warn('Push notifications não são suportadas neste navegador.');
-          return;
-        }
-
-        if (!(await isSupported())) {
-          console.warn('Firebase Messaging não é suportado neste navegador.');
-          return;
-        }
-
-        if (Notification.permission !== 'granted') {
-          console.log('Push aguardando permissão do usuário.');
-          return;
-        }
-
+        if (!auth.currentUser) return;
+        if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+        if (!(await isSupported())) return;
+        if (Notification.permission !== 'granted') return;
         const registration = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;
-
         const messaging = getMessaging(app);
         const currentToken = await getToken(messaging, {
           vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
           serviceWorkerRegistration: registration,
         });
-
-        if (!currentToken || cancelled) {
-          if (!currentToken) console.warn('Nenhum token FCM disponível.');
-          return;
-        }
-
+        if (!currentToken || cancelled) return;
         setToken(currentToken);
         await registerCurrentBrowserToken(currentToken);
-
-        console.log('Push FCM registrado no JapanFlow.');
-
+        if (cancelled) return;
         unsubscribe = onMessage(messaging, (payload) => {
-          const title = payload.notification?.title || payload.data?.title || 'JapanFlow';
-
-          const body = payload.notification?.body || payload.data?.body || 'Nova notificação';
-
-          console.log('Mensagem FCM recebida em foreground:', payload);
-          setNotification({ title, body });
+          const type = String(payload.data?.type || '').toLowerCase();
+          if (type !== 'task') return;
+          setNotification({
+            title: payload.notification?.title || payload.data?.title || 'JapanFlow',
+            body: payload.notification?.body || payload.data?.body || 'Nova tarefa',
+          });
         });
       } catch (error) {
         console.error('Erro ao configurar push notifications:', error);
       }
     }
-
     void setupPush();
-
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
   }, []);
-
   return { token, notification };
 }
 
 export async function requestPushPermission() {
-  if (!('Notification' in window)) {
-    throw new Error('Este navegador não suporta notificações.');
-  }
-
+  if (!('Notification' in window)) throw new Error('Este navegador não suporta notificações.');
   return Notification.requestPermission();
 }
 
@@ -147,22 +97,23 @@ export async function sendPushToUser(
   userId: string,
   title: string,
   body: string,
-  url = '/'
+  url: string,
+  eventId: string
 ): Promise<void> {
-  if (!userId || !title || !body) return;
-
+  if (!userId || !title || !body || !eventId) return;
   try {
     const result = await authenticatedPost('/push/send', {
       userId,
       title,
       body,
       url,
+      eventId,
+      type: 'task',
     });
-
     if (result?.found === 0) {
-      console.info(`Usuário ${userId} ainda não possui dispositivo push registrado.`);
+      console.info(`Usuário ${userId} ainda não possui dispositivo push habilitado neste domínio.`);
     }
   } catch (error) {
-    console.warn('Não foi possível enviar push:', error);
+    console.warn('Não foi possível enviar push de tarefa:', error);
   }
 }

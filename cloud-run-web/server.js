@@ -600,8 +600,12 @@ async function registerPushSubscription(req, res, caller) {
 
   const userAgent = String(body.userAgent || '')
     .trim()
-
     .slice(0, 500);
+  const requestOrigin = String(req.headers.origin || '');
+  const declaredOrigin = String(body.origin || '');
+  if (!allowedOrigins.has(requestOrigin) || declaredOrigin !== requestOrigin) {
+    return json(req, res, 403, { error: 'Origem da inscrição push inválida' });
+  }
 
   if (!token || token.length < 20 || token.length > 4096) {
     return json(req, res, 400, {
@@ -613,27 +617,32 @@ async function registerPushSubscription(req, res, caller) {
 
   const documentId = `push_${safeDocumentPart(caller.userId)}_${tokenHash.slice(0, 40)}`;
 
-  await db.collection('push_subscriptions').doc(documentId).set(
-    {
-      user_id: caller.userId,
+  await db
+    .collection('push_subscriptions')
+    .doc(documentId)
+    .set(
+      {
+        user_id: caller.userId,
 
-      token,
+        token,
 
-      platform,
+        platform,
 
-      user_agent: userAgent,
+        user_agent: userAgent,
+        origin: requestOrigin,
+        environment: requestOrigin.startsWith('https://') ? 'production' : 'development',
 
-      active: true,
+        active: true,
 
-      updated_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
 
-      created_at: FieldValue.serverTimestamp(),
-    },
+        created_at: FieldValue.serverTimestamp(),
+      },
 
-    {
-      merge: true,
-    }
-  );
+      {
+        merge: true,
+      }
+    );
 
   return json(req, res, 200, {
     ok: true,
@@ -677,6 +686,19 @@ async function sendPushToUser(req, res, caller) {
 
     .slice(0, 500);
 
+  const notificationType = String(body.type || '');
+  const eventId = String(body.eventId || '').trim();
+  const requestOrigin = String(req.headers.origin || '');
+  if (notificationType !== 'task') {
+    return json(req, res, 403, { error: 'Push externo permitido somente para tarefas' });
+  }
+  if (!/^[a-zA-Z0-9_-]{8,160}$/.test(eventId)) {
+    return json(req, res, 400, { error: 'Identificador de evento de tarefa inválido' });
+  }
+  if (!['https://japanflow.com.br', 'https://japanflow-erp.web.app'].includes(requestOrigin)) {
+    return json(req, res, 403, { error: 'Origem de produção não autorizada' });
+  }
+
   const requestedUrl = String(body.url || '/').trim();
 
   const url = requestedUrl.startsWith('/') ? requestedUrl.slice(0, 500) : '/';
@@ -684,7 +706,7 @@ async function sendPushToUser(req, res, caller) {
   const tag =
     typeof body.tag === 'string' && body.tag.trim()
       ? body.tag.trim().slice(0, 120)
-      : `japanflow-${Date.now()}`;
+      : `japanflow-${eventId}`;
 
   if (!userId || !title || !messageBody) {
     return json(req, res, 400, {
@@ -692,7 +714,10 @@ async function sendPushToUser(req, res, caller) {
     });
   }
 
-  const subscriptions = await listPushSubscriptions(userId);
+  // Tokens sem origem (legados) ou de localhost não recebem eventos de produção.
+  const subscriptions = (await listPushSubscriptions(userId)).filter(
+    (subscription) => subscription.origin === requestOrigin
+  );
 
   if (!subscriptions.length) {
     return json(req, res, 200, {
@@ -708,6 +733,30 @@ async function sendPushToUser(req, res, caller) {
 
       deactivated: 0,
     });
+  }
+
+  const dispatchId = crypto.createHash('sha256').update(`${userId}:${eventId}`).digest('hex');
+  try {
+    await db.collection('push_dispatches').doc(dispatchId).create({
+      user_id: userId,
+      event_id: eventId,
+      origin: requestOrigin,
+      type: 'task',
+      status: 'processing',
+      created_at: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    if (String(error?.code) === '6' || String(error?.code).includes('already-exists')) {
+      return json(req, res, 200, {
+        ok: true,
+        duplicate: true,
+        found: subscriptions.length,
+        sent: 0,
+        failed: 0,
+        deactivated: 0,
+      });
+    }
+    throw error;
   }
 
   let sent = 0;
@@ -729,6 +778,8 @@ async function sendPushToUser(req, res, caller) {
           url,
 
           tag,
+          type: 'task',
+          eventId,
         },
 
         webpush: {
@@ -771,6 +822,16 @@ async function sendPushToUser(req, res, caller) {
       });
     }
   }
+
+  await db
+    .collection('push_dispatches')
+    .doc(dispatchId)
+    .update({
+      status: failed ? 'partial_failure' : 'completed',
+      sent,
+      failed,
+      updated_at: FieldValue.serverTimestamp(),
+    });
 
   console.log('push-send summary', {
     targetUserId: userId,

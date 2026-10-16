@@ -199,6 +199,7 @@ export function useFirebaseTasks(
           updated_at: now,
         })
         .commit();
+      return taskRef.id;
     },
     []
   );

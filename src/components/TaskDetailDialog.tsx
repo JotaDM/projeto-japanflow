@@ -802,7 +802,9 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                           await sendPushToUser(
                             targetUser,
                             'Tarefa respondida',
-                            `${currentUser.name} respondeu à tarefa "${task.title}"`
+                            `${currentUser.name} respondeu à tarefa "${task.title}"`,
+                            '/board',
+                            `task-reply-${replyNotification.id}`
                           );
                         }
                       }}
@@ -982,7 +984,9 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                         await sendPushToUser(
                           'emp-1',
                           'Nova tarefa encaminhada',
-                          `${task.title} - Para impressão`
+                          `${task.title} - Para impressão`,
+                          '/board',
+                          `task-forward-${printNotification.id}`
                         );
                         toast.success('Tarefa encaminhada para Patrícia!');
                       }}
@@ -1104,7 +1108,9 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                             await sendPushToUser(
                               transferTarget,
                               'Tarefa transferida',
-                              `"${task.title}" foi transferida para você`
+                              `"${task.title}" foi transferida para você`,
+                              '/board',
+                              `task-transfer-${transferNotification.id}`
                             );
                             toast.success(`Tarefa transferida para ${targetUser?.name}`);
                             setShowTransfer(false);
