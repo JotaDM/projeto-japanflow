@@ -792,7 +792,7 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                         );
 
                         if (shouldTransfer && targetUser && currentUser) {
-                          await addDoc(collection(db, 'notifications'), {
+                          const replyNotification = await addDoc(collection(db, 'notifications'), {
                             user_id: targetUser,
                             message: `${currentUser.name} respondeu à tarefa "${task.title}" — verifique a resposta`,
                             type: 'task_created',
@@ -974,7 +974,7 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                           created_at: Timestamp.now(),
                           updated_at: Timestamp.now(),
                         });
-                        await addDoc(collection(db, 'notifications'), {
+                        const printNotification = await addDoc(collection(db, 'notifications'), {
                           user_id: 'emp-1',
                           message: `Tarefa "${task.title}" encaminhada do Financeiro para impressão`,
                           type: 'task_created',
@@ -1098,13 +1098,16 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                               updated_at: Timestamp.now(),
                             });
                             const targetUser = users.find((u) => u.id === transferTarget);
-                            await addDoc(collection(db, 'notifications'), {
-                              user_id: transferTarget,
-                              message: `Tarefa "${task.title}" foi transferida para você por ${currentUser?.name}`,
-                              type: 'task_created',
-                              read: false,
-                              created_at: Timestamp.now(),
-                            });
+                            const transferNotification = await addDoc(
+                              collection(db, 'notifications'),
+                              {
+                                user_id: transferTarget,
+                                message: `Tarefa "${task.title}" foi transferida para você por ${currentUser?.name}`,
+                                type: 'task_created',
+                                read: false,
+                                created_at: Timestamp.now(),
+                              }
+                            );
                             await sendPushToUser(
                               transferTarget,
                               'Tarefa transferida',
