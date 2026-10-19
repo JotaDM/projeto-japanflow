@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 
@@ -28,10 +35,12 @@ import { getClientPublicIp, isIpAllowed } from '@/lib/networkGuard';
 import { userCanAccessExternally } from '@/lib/externalAccess';
 
 const SIDEBAR_STORAGE_KEY = 'japanflow-sidebar-collapsed';
+const SIDEBAR_WIDTH_KEY = 'japanflow-sidebar-width';
 
 const pageTitles: Record<string, string> = {
   '/admin': 'Meu Quadro',
   '/admin/monitor': 'Monitoria',
+  '/gas': 'Gestão de Análise do Sistema',
   '/board': 'Meu Quadro',
   '/chat': 'Chat',
   '/corporate': 'Corporativo',
@@ -64,6 +73,26 @@ const AppLayout = () => {
   const isMobile = useIsMobile();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const raw = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    return Number.isFinite(raw) && raw >= 200 && raw <= 340 ? raw : 248;
+  });
+  const draggingRef = useRef(false);
+  const startResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    draggingRef.current = true;
+    const move = (e: PointerEvent) => setSidebarWidth(Math.max(200, Math.min(340, e.clientX)));
+    const stop = () => {
+      draggingRef.current = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop, { once: true });
+  }, []);
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
   const splashRequested = Boolean(
     (location.state as { showLoginSplash?: boolean } | null)?.showLoginSplash
   );
@@ -182,7 +211,12 @@ const AppLayout = () => {
 
       <div className="flex min-h-[100dvh] overflow-hidden bg-background">
         {!isMobile && (
-          <AppSidebar collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
+          <AppSidebar
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+            width={sidebarWidth}
+            onResizeStart={startResize}
+          />
         )}
 
         <div className="flex h-[100dvh] max-h-[100dvh] min-w-0 flex-1 flex-col">

@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
-import { UserRound } from 'lucide-react';
+import { UserRound, Database, Cloud, Activity } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { useApp } from '@/contexts/AppContext';
 import { useTaskPermissions } from '@/hooks/useTaskPermissions';
@@ -9,11 +10,17 @@ import EmployeeCalendar from '@/components/EmployeeCalendar';
 import DailyCompletedCounter from '@/components/DailyCompletedCounter';
 import TaskHistoryDialog from '@/components/TaskHistoryDialog';
 import WorkScheduleBanner from '@/components/WorkScheduleBanner';
+import { QuotaProgress } from '@/components/QuotaProgress';
 import { SECTOR_LABELS, Sector } from '@/types';
 
 const EmployeeBoardPage = () => {
   const { employeeId } = useParams();
-  const { currentUser, users, getTasksForUser } = useApp();
+  const { currentUser, authenticatedUser, isActingAsTi, users, getTasksForUser } = useApp();
+  const tiDashboard =
+    authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    isActingAsTi ||
+    (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
+    currentUser?.role === 'admin';
   const { permissions, loading: permissionsLoading } = useTaskPermissions();
 
   const isAdmin = currentUser?.role === 'admin';
@@ -42,7 +49,49 @@ const EmployeeBoardPage = () => {
 
   return (
     <div className="w-full min-w-0 space-y-5 md:space-y-6">
-      <WorkScheduleBanner userId={viewUserId} />
+      {tiDashboard && !employeeId ? (
+        <div className="jf-surface flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1">
+            <QuotaProgress compact />
+          </div>
+          <div
+            className="flex shrink-0 flex-wrap items-center gap-2"
+            aria-label="Atalhos de administração"
+          >
+            <a
+              href="https://console.firebase.google.com/u/1/project/japanflow-erp/firestore"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Firebase Firestore"
+              aria-label="Abrir Firebase Firestore"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background hover:bg-muted"
+            >
+              <Database className="h-5 w-5" />
+            </a>
+            <a
+              href="https://console.cloud.google.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Google Cloud"
+              aria-label="Abrir Google Cloud"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background hover:bg-muted"
+            >
+              <Cloud className="h-5 w-5" />
+            </a>
+            <Link
+              to="/gas"
+              title="Gestão de Análise do Sistema"
+              aria-label="Abrir GAS"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+            >
+              <Activity className="h-5 w-5" />
+              GAS
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <WorkScheduleBanner userId={viewUserId} />
+      )}
 
       <section className="jf-diagonal-accent overflow-hidden rounded-2xl border border-border/70 bg-card p-5 shadow-card md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">

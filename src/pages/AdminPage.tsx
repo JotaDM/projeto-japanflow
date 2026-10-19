@@ -1,4 +1,5 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
+import { Database, Cloud, Activity } from 'lucide-react';
 
 import { useApp } from '@/contexts/AppContext';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -8,20 +9,69 @@ import DailyCompletedCounter from '@/components/DailyCompletedCounter';
 import TaskHistoryDialog from '@/components/TaskHistoryDialog';
 import WorkScheduleBanner from '@/components/WorkScheduleBanner';
 import PickupsPanel from '@/components/PickupsPanel';
+import { QuotaProgress } from '@/components/QuotaProgress';
 
 const AdminPage = () => {
-  const { currentUser, getTasksForUser } = useApp();
+  const { currentUser, authenticatedUser, getTasksForUser } = useApp();
 
   if (!currentUser || currentUser.role !== 'admin') {
     return <Navigate to="/login" replace />;
   }
+
+  const isTiAccount =
+    authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
+    currentUser.username?.trim().toLowerCase() === 'japan-ti' ||
+    (currentUser.sectors as string[] | undefined)?.includes('ti');
 
   const tasks = getTasksForUser(currentUser.id);
 
   return (
     <div className="min-w-0 space-y-5 md:space-y-6">
       <section className="min-w-0">
-        <WorkScheduleBanner userId={currentUser.id} />
+        {isTiAccount ? (
+          <div className="jf-surface flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
+            <div className="min-w-0 flex-1">
+              <QuotaProgress compact />
+            </div>
+            <div
+              className="flex shrink-0 flex-wrap items-center gap-2"
+              aria-label="Atalhos de administração"
+            >
+              <a
+                href="https://console.firebase.google.com/u/1/project/japanflow-erp/firestore"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Firebase Firestore"
+                aria-label="Abrir Firebase Firestore"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background hover:bg-muted"
+              >
+                <Database className="h-5 w-5" />
+              </a>
+              <a
+                href="https://console.cloud.google.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Google Cloud"
+                aria-label="Abrir Google Cloud"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background hover:bg-muted"
+              >
+                <Cloud className="h-5 w-5" />
+              </a>
+              <Link
+                to="/gas"
+                title="Gestão de Análise do Sistema"
+                aria-label="Abrir GAS"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+              >
+                <Activity className="h-5 w-5" />
+                GAS
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <WorkScheduleBanner userId={currentUser.id} />
+        )}
       </section>
 
       <section className="jf-surface overflow-hidden p-4 md:p-5">

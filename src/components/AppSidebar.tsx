@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { toast } from 'sonner';
 import { useApp } from '@/contexts/AppContext';
 import { useSystemNotifications } from '@/hooks/useSystemNotifications';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
+  X,
+  Activity,
   ChevronRight,
   LayoutGrid,
   LogOut,
@@ -41,6 +44,8 @@ interface AppSidebarProps {
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   mobile?: boolean;
+  width?: number;
+  onResizeStart?: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }
 type NavItem = {
   icon: JapanFlowIconName;
@@ -60,6 +65,8 @@ const AppSidebar = ({
   collapsed = false,
   onCollapsedChange,
   mobile = false,
+  width = 248,
+  onResizeStart,
 }: AppSidebarProps) => {
   const {
     currentUser,
@@ -75,7 +82,27 @@ const AppSidebar = ({
     notifications: systemNotifications,
     unreadCount: systemUnreadCount,
     markAsRead: markSystemNotificationAsRead,
+    dismissAll: dismissSystemNotifications,
   } = useSystemNotifications();
+  const isTiDashboardUser = Boolean(
+    authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
+    isActingAsTi
+  );
+  const [clearingSystemNotifications, setClearingSystemNotifications] = useState(false);
+  const clearSystemNotifications = async () => {
+    if (clearingSystemNotifications) return;
+    setClearingSystemNotifications(true);
+    try {
+      await dismissSystemNotifications();
+      toast.success('Avisos antigos dispensados. Novos alertas continuarão chegando.');
+    } catch (error) {
+      console.error('Falha ao limpar avisos do sistema:', error);
+      toast.error('Não foi possível limpar os avisos.');
+    } finally {
+      setClearingSystemNotifications(false);
+    }
+  };
   const navigate = useNavigate();
   const location = useLocation();
   const presenceUserId = authenticatedUser?.id || currentUser?.id || null;
@@ -84,8 +111,8 @@ const AppSidebar = ({
   const { isTabEnabled } = useTabPermissions();
   const { hasFeature } = useFeaturePermissions();
   const { theme } = useThemeToggle();
-  const sidebarLogo = theme === 'light' ? logoLight : logoDark;
-  const sidebarMark = theme === 'light' ? markLight : markDark;
+  const sidebarLogo = theme === 'light' || theme === 'mono-light' ? logoLight : logoDark;
+  const sidebarMark = theme === 'light' || theme === 'mono-light' ? markLight : markDark;
   const [primaryOpen, setPrimaryOpen] = useState(true);
   const [operationOpen, setOperationOpen] = useState(true);
   const [toolsOpen, setToolsOpen] = useState(true);
@@ -317,9 +344,10 @@ const AppSidebar = ({
   };
   return (
     <aside
+      style={!mobile ? { width: collapsed ? 72 : width } : undefined}
       className={cn(
-        'sidebar-gradient flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] shrink-0 flex-col overflow-hidden border-r border-sidebar-border text-sidebar-foreground transition-[width] duration-220 ease-premium',
-        mobile ? 'w-[min(90vw,328px)]' : collapsed ? 'w-[72px]' : 'w-[248px]'
+        'relative sidebar-gradient flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] shrink-0 flex-col overflow-hidden border-r border-sidebar-border text-sidebar-foreground transition-[width] duration-220 ease-premium',
+        mobile ? 'w-[min(90vw,328px)]' : collapsed ? 'w-[72px]' : ''
       )}
     >
       <div
@@ -409,7 +437,27 @@ const AppSidebar = ({
           </button>
         )}
         {(collapsed || primaryOpen) && (
-          <div className="space-y-0.5">{primaryItems.map(renderNavItem)}</div>
+          <div className="space-y-0.5">
+            {isTiDashboardUser && (
+              <button
+                type="button"
+                onClick={() => handleNav('/gas')}
+                title="GAS · Gestão de Análise do Sistema"
+                aria-current={location.pathname === '/gas' ? 'page' : undefined}
+                className={cn(
+                  'jf-interactive mb-2 flex h-10 w-full items-center rounded-xl text-sm font-semibold',
+                  collapsed ? 'justify-center' : 'gap-3 px-3',
+                  location.pathname === '/gas'
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                )}
+              >
+                <Activity className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>GAS</span>}
+              </button>
+            )}
+            {primaryItems.map(renderNavItem)}
+          </div>
         )}
         {operationItems.length > 0 && (
           <>
@@ -645,6 +693,23 @@ const AppSidebar = ({
               align="end"
               className="max-h-[360px] w-[320px] overflow-y-auto"
             >
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-popover px-3 py-2">
+                <span className="text-xs font-semibold">Avisos do sistema</span>
+                <button
+                  type="button"
+                  title="Limpar avisos antigos"
+                  aria-label="Limpar avisos antigos"
+                  disabled={clearingSystemNotifications || systemNotifications.length === 0}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void clearSystemNotifications();
+                  }}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
               {systemNotifications.length === 0 ? (
                 <div className="px-3 py-6 text-center text-xs text-muted-foreground">
                   Nenhuma notificação
@@ -704,6 +769,15 @@ const AppSidebar = ({
           )}
         </div>
       </div>
+      {!mobile && !collapsed && (
+        <div
+          onPointerDown={onResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          title="Arraste para ajustar a largura"
+          className="absolute right-0 top-0 z-50 h-full w-2 cursor-col-resize hover:bg-primary/15"
+        />
+      )}
     </aside>
   );
 };

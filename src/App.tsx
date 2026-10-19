@@ -6,8 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from '@/contexts/AppContext';
 import AppLayout from '@/components/AppLayout';
-
-// Carregamento sob demanda das páginas
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const AdminMonitorPage = lazy(() => import('@/pages/AdminMonitorPage'));
@@ -28,17 +26,14 @@ const AdminBackfillImagesPage = lazy(() => import('@/pages/AdminBackfillImagesPa
 const SharedDocsPage = lazy(() => import('@/pages/SharedDocsPage'));
 const InternalPoliciesPage = lazy(() => import('@/pages/InternalPoliciesPage'));
 const ChatHistoryPage = lazy(() => import('@/pages/ChatHistoryPage'));
+const GASPage = lazy(() => import('@/pages/GASPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
-
 const queryClient = new QueryClient();
-
-// Exibido temporariamente enquanto uma página é carregada
 const CarregandoPagina = () => (
   <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center">
     <span className="text-sm text-muted-foreground">Carregando página...</span>
   </div>
 );
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -49,7 +44,6 @@ const App = () => (
           <Suspense fallback={<CarregandoPagina />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-
               <Route element={<AppLayout />}>
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/monitor" element={<AdminMonitorPage />} />
@@ -71,8 +65,8 @@ const App = () => (
                 <Route path="/documentos" element={<SharedDocsPage />} />
                 <Route path="/politicas-internas" element={<InternalPoliciesPage />} />
                 <Route path="/historico-conversas" element={<ChatHistoryPage />} />
+                <Route path="/gas" element={<GASPage />} />
               </Route>
-
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -82,5 +76,4 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
-
 export default App;

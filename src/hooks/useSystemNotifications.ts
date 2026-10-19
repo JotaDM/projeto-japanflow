@@ -6,6 +6,7 @@ import {
   orderBy,
   query,
   updateDoc,
+  writeBatch,
   where,
   limit,
 } from 'firebase/firestore';
@@ -56,6 +57,22 @@ export function useSystemNotifications() {
       }
     );
   }, [authenticatedUser?.id]);
+  // As regras de segurança permitem alterar read, mas não excluir avisos do sistema.
+  // Limpar significa dispensar os avisos visíveis ao usuário sem apagar o histórico.
+  const dismissAll = async () => {
+    const pending = notifications.filter((item) => !item.read);
+    for (let i = 0; i < pending.length; i += 400) {
+      const batch = writeBatch(db);
+      for (const item of pending.slice(i, i + 400)) {
+        batch.update(doc(db, 'system_notifications', item.id), { read: true });
+      }
+      await batch.commit();
+    }
+  };
+  const visibleNotifications = useMemo(
+    () => notifications.filter((item) => !item.read),
+    [notifications]
+  );
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
     [notifications]
@@ -66,8 +83,9 @@ export function useSystemNotifications() {
     });
   };
   return {
-    notifications,
+    notifications: visibleNotifications,
     unreadCount,
+    dismissAll,
     markAsRead,
   };
 }

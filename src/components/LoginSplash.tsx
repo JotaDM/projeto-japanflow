@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useThemeToggle } from '@/hooks/useThemeToggle';
+import ThemeSwitcher from '@/components/ThemeSwitcher';
 import logoDark from '@/assets/japanflow-logo-dark.png';
 import logoLight from '@/assets/japanflow-logo-light.png';
 
@@ -18,7 +19,7 @@ export default function LoginSplash({
   const { theme } = useThemeToggle();
   const [leaving, setLeaving] = useState(false);
 
-  const isLight = theme === 'light';
+  const isLight = theme === 'light' || theme === 'mono-light';
   const firstName = userName?.trim().split(/\s+/)[0] || 'usuário';
 
   useEffect(() => {
@@ -51,6 +52,10 @@ export default function LoginSplash({
       aria-live="polite"
       aria-label="Carregando seu espaço no JapanFlow"
     >
+      <div className="absolute right-5 top-5 z-20 rounded-xl border border-border/30 bg-background/70 p-1 backdrop-blur-md">
+        <ThemeSwitcher />
+      </div>
+
       <div
         className={
           isLight

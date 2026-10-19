@@ -414,7 +414,7 @@
   .jf-diagonal-accent::after {
     width: 58%;
     right: -28%;
-    opacity: 0.72;
+    opacity: 0.88;
   }
 }
 
@@ -524,8 +524,8 @@ button:active,
 /* Chrome/Edge: troca de tema usando snapshot da página inteira. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 340ms;
-  animation-timing-function: var(--jf-motion-ease);
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 ::view-transition-old(root) {
@@ -542,14 +542,14 @@ button:active,
     filter: brightness(1);
   }
   to {
-    opacity: 0.72;
+    opacity: 0.88;
     filter: brightness(0.98);
   }
 }
 
 @keyframes jf-theme-in {
   from {
-    opacity: 0.72;
+    opacity: 0.88;
     filter: brightness(1.02);
   }
   to {
@@ -563,8 +563,8 @@ html.jf-theme-fallback,
 html.jf-theme-fallback body,
 html.jf-theme-fallback #root {
   transition:
-    background-color 340ms var(--jf-motion-ease),
-    color 340ms var(--jf-motion-ease);
+    background-color 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Light mode: contraste mais forte para textos auxiliares e sidebar. */
@@ -594,5 +594,95 @@ html.jf-theme-fallback #root {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Terceira família de tema: monocromático claro/escuro. Preserva estados semânticos. */
+@layer base {
+  :root.mono-light,
+  :root[data-theme='mono-light'] {
+    color-scheme: light;
+    --brand-red: 0 0% 12%;
+    --brand-red-hover: 0 0% 22%;
+    --brand-red-deep: 0 0% 8%;
+    --background: 0 0% 96%;
+    --foreground: 0 0% 9%;
+    --surface: 0 0% 100%;
+    --surface-secondary: 0 0% 94%;
+    --surface-elevated: 0 0% 100%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 12%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 39%;
+    --accent: 0 0% 90%;
+    --accent-foreground: 0 0% 12%;
+    --border: 0 0% 85%;
+    --input: 0 0% 83%;
+    --ring: 0 0% 24%;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-fg: 0 0% 30%;
+    --sidebar-active: 0 0% 12%;
+    --sidebar-hover: 0 0% 94%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-background: var(--sidebar-bg);
+    --sidebar-foreground: var(--sidebar-fg);
+    --sidebar-primary: 0 0% 12%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 12%;
+    --sidebar-ring: 0 0% 24%;
+    --glass-bg: rgba(255, 255, 255, 0.86);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.06);
+    --shadow-floating: 0 18px 50px rgba(0, 0, 0, 0.13);
+  }
+  :root.mono-dark,
+  :root[data-theme='mono-dark'] {
+    color-scheme: dark;
+    --brand-red: 0 0% 86%;
+    --brand-red-hover: 0 0% 96%;
+    --brand-red-deep: 0 0% 70%;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 95%;
+    --surface: 0 0% 11%;
+    --surface-secondary: 0 0% 14%;
+    --surface-elevated: 0 0% 17%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 88%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 94%;
+    --muted: 0 0% 19%;
+    --muted-foreground: 0 0% 68%;
+    --accent: 0 0% 23%;
+    --accent-foreground: 0 0% 95%;
+    --border: 0 0% 27%;
+    --input: 0 0% 30%;
+    --ring: 0 0% 80%;
+    --sidebar-bg: 0 0% 6%;
+    --sidebar-fg: 0 0% 78%;
+    --sidebar-active: 0 0% 88%;
+    --sidebar-hover: 0 0% 18%;
+    --sidebar-border: 0 0% 24%;
+    --sidebar-background: var(--sidebar-bg);
+    --sidebar-foreground: var(--sidebar-fg);
+    --sidebar-primary: 0 0% 88%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 0 0% 19%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-ring: 0 0% 80%;
+    --glass-bg: rgba(18, 18, 18, 0.86);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --shadow-card: 0 8px 26px rgba(0, 0, 0, 0.28);
+    --shadow-floating: 0 18px 50px rgba(0, 0, 0, 0.45);
   }
 }

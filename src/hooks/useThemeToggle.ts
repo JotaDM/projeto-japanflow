@@ -1,14 +1,14 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
-export type Theme = 'dark' | 'light' | 'hybrid';
+export type Theme = 'dark' | 'light' | 'mono-light' | 'mono-dark' | 'hybrid';
 
 const THEME_STORAGE_KEY = 'japanflow-theme';
 const THEME_EVENT = 'japanflow-theme-change';
 
-type ActiveTheme = 'dark' | 'light';
+type ActiveTheme = 'dark' | 'light' | 'mono-light' | 'mono-dark';
 
 function normalizeTheme(value: Theme | string | null | undefined): ActiveTheme {
-  return value === 'light' ? 'light' : 'dark';
+  return value === 'light' || value === 'mono-light' || value === 'mono-dark' ? value : 'dark';
 }
 
 function getStoredTheme(): ActiveTheme {
@@ -30,10 +30,10 @@ function applyTheme(theme: ActiveTheme) {
   if (typeof document === 'undefined') return;
 
   const root = document.documentElement;
-  root.classList.remove('dark', 'light', 'hybrid');
+  root.classList.remove('dark', 'light', 'hybrid', 'mono-light', 'mono-dark');
   root.classList.add(theme);
   root.dataset.theme = theme;
-  root.style.colorScheme = theme;
+  root.style.colorScheme = theme === 'light' || theme === 'mono-light' ? 'light' : 'dark';
 }
 
 function commitTheme(theme: ActiveTheme) {
@@ -90,7 +90,14 @@ function changeThemeSmoothly(nextTheme: ActiveTheme) {
     startViewTransition?: (callback: () => void) => { finished: Promise<void> };
   };
 
-  if (!reduceMotion && doc.startViewTransition) {
+  if (nextTheme === currentTheme) return;
+
+  if (reduceMotion) {
+    commitTheme(nextTheme);
+    return;
+  }
+
+  if (doc.startViewTransition) {
     doc.startViewTransition(() => commitTheme(nextTheme));
     return;
   }
@@ -100,7 +107,7 @@ function changeThemeSmoothly(nextTheme: ActiveTheme) {
 
   window.setTimeout(() => {
     document.documentElement.classList.remove('jf-theme-fallback');
-  }, 360);
+  }, 520);
 }
 
 applyTheme(currentTheme);
@@ -113,7 +120,15 @@ export function useThemeToggle() {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    changeThemeSmoothly(theme === 'dark' ? 'light' : 'dark');
+    changeThemeSmoothly(
+      theme === 'dark'
+        ? 'light'
+        : theme === 'light'
+          ? 'mono-light'
+          : theme === 'mono-light'
+            ? 'mono-dark'
+            : 'dark'
+    );
   }, [theme]);
 
   return {
