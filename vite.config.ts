@@ -15,6 +15,22 @@ export default defineConfig(() => ({
     },
   },
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Somente dependencias pesadas de recursos opcionais.
+          // Nao separar React, Firebase nem providers globais.
+          if (id.includes('/node_modules/recharts/') || id.includes('\\node_modules\\recharts\\')) {
+            return 'charts-vendor';
+          }
+          if (id.includes('/node_modules/@tiptap/') || id.includes('\\node_modules\\@tiptap\\')) {
+            return 'editor-vendor';
+          }
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

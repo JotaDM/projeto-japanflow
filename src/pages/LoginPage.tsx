@@ -26,7 +26,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { theme } = useThemeToggle();
 
-  const isLight = theme === 'light';
+  const isLight = theme === 'light' || theme === 'mono-light';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
