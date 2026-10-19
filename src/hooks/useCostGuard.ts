@@ -11,6 +11,9 @@ export interface CostGuardState {
   readsPercentage: number;
   writesPercentage: number;
   deletesPercentage: number;
+  status: 'loading' | 'ready' | 'unavailable';
+  lastUpdated: Date | null;
+  day: string | null;
 }
 
 const DEFAULT_STATE: CostGuardState = {
@@ -19,6 +22,9 @@ const DEFAULT_STATE: CostGuardState = {
   readsPercentage: 0,
   writesPercentage: 0,
   deletesPercentage: 0,
+  status: 'loading',
+  lastUpdated: null,
+  day: null,
 };
 
 export function useCostGuard(enabled = true) {
@@ -36,7 +42,7 @@ export function useCostGuard(enabled = true) {
       guardRef,
       (snapshot) => {
         if (!snapshot.exists()) {
-          setState(DEFAULT_STATE);
+          setState({ ...DEFAULT_STATE, status: 'unavailable' });
           return;
         }
 
@@ -55,12 +61,15 @@ export function useCostGuard(enabled = true) {
           readsPercentage: Number(data.reads_percentage || 0),
           writesPercentage: Number(data.writes_percentage || 0),
           deletesPercentage: Number(data.deletes_percentage || 0),
+          status: 'ready',
+          lastUpdated: data.updated_at?.toDate?.() ?? null,
+          day: typeof data.day === 'string' ? data.day : null,
         });
       },
       (error) => {
         console.warn('Não foi possível carregar o Cost Guard:', error);
 
-        setState(DEFAULT_STATE);
+        setState({ ...DEFAULT_STATE, status: 'unavailable' });
       }
     );
   }, [enabled]);

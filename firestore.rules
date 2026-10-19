@@ -102,6 +102,13 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Histórico agregado do monitor: somente leitura por administradores/TI.
+    // Gravações são exclusivas do backend com credenciais de serviço.
+    match /system_usage_daily/{day} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /system_monitor_state/{docId} {
       allow read, write: if false;
     }
@@ -281,6 +288,7 @@ service cloud.firestore {
         && collection != 'chat_read_status'
         && collection != 'freight_destinations'
         && collection != 'system_notifications'
+        && collection != 'system_usage_daily'
         && collection != 'system_runtime'
         && collection != 'system_monitor_state'
         && collection != 'messages';

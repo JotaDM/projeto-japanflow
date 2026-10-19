@@ -159,12 +159,12 @@ const FREE_TIER_METRICS = [
   },
 ];
 
-const FREE_TIER_THRESHOLDS = [70, 85, 95, 100];
+const FREE_TIER_THRESHOLDS = [50, 75, 90, 100];
 
 function costGuardMode(percentage) {
-  if (percentage >= 95) return 'protected';
-  if (percentage >= 85) return 'economy';
-  if (percentage >= 70) return 'warning';
+  if (percentage >= 100) return 'protected';
+  if (percentage >= 90) return 'economy';
+  if (percentage >= 75) return 'warning';
   return 'normal';
 }
 
@@ -364,6 +364,27 @@ async function handleFreeTierMonitor(_req, res) {
         {
           merge: true,
         }
+      );
+    // Um documento por dia: série histórica real e barata para o GAS.
+    // Os percentuais são amostras obtidas do Cloud Monitoring, não contadores locais.
+    await db
+      .collection('system_usage_daily')
+      .doc(dayKey)
+      .set(
+        {
+          day: dayKey,
+          timezone: 'America/Los_Angeles',
+          mode: guardMode,
+          max_percentage: maxPercentage,
+          reads_percentage: Number(reads?.percentage || 0),
+          writes_percentage: Number(writes?.percentage || 0),
+          deletes_percentage: Number(deletes?.percentage || 0),
+          reads_usage: Number(reads?.usage || 0),
+          writes_usage: Number(writes?.usage || 0),
+          deletes_usage: Number(deletes?.usage || 0),
+          updated_at: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
       );
     console.log('free-tier-monitor', {
       dayKey,

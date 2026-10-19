@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { collection, documentId, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Activity, ArrowUpRight, Cloud, Database, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
   PieChart,
@@ -11,12 +14,20 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  LineChart,
+  Line,
+  Legend,
 } from 'recharts';
 import { useApp } from '@/contexts/AppContext';
 import { useCostGuard } from '@/hooks/useCostGuard';
 import { quotaColor } from '@/components/QuotaProgress';
 import { cn } from '@/lib/utils';
 
+type DailyMetric = { day: string; reads: number; writes: number; deletes: number };
+const numeric = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
 const percent = (v: number) => `${Math.max(0, v).toFixed(1)}%`;
 const barFill = (v: number) => (v >= 90 ? '#ef4444' : v >= 75 ? '#f59e0b' : '#10b981');
 function MetricCard({ name, value }: { name: string; value: number }) {
@@ -55,6 +66,43 @@ export default function GASPage() {
     isActingAsTi
   );
   const guard = useCostGuard(isTi);
+  const [history, setHistory] = useState<DailyMetric[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  useEffect(() => {
+    if (!isTi) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(
+          query(collection(db, 'system_usage_daily'), orderBy(documentId(), 'desc'), limit(14))
+        );
+        if (cancelled) return;
+        setHistory(
+          snapshot.docs
+            .map((item) => {
+              const data = item.data();
+              return {
+                day: item.id,
+                reads: numeric(data.reads_percentage),
+                writes: numeric(data.writes_percentage),
+                deletes: numeric(data.deletes_percentage),
+              };
+            })
+            .reverse()
+        );
+        setHistoryStatus('ready');
+      } catch (error) {
+        if (cancelled) return;
+        console.warn('Histórico de consumo indisponível:', error);
+        setHistoryStatus('error');
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isTi]);
+
   if (!isTi)
     return <div className="p-8 text-sm text-muted-foreground">Acesso restrito à equipe TI.</div>;
   const metrics = [
@@ -84,6 +132,22 @@ export default function GASPage() {
           Voltar ao quadro
         </Link>
       </header>
+      {guard.status !== 'ready' && (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"
+        >
+          {guard.status === 'loading'
+            ? 'Carregando monitoramento do Firestore…'
+            : 'Monitoramento indisponível: os percentuais podem não refletir o consumo atual.'}
+        </div>
+      )}
+      {guard.status === 'ready' && guard.lastUpdated && (
+        <p className="text-xs text-muted-foreground">
+          Última amostra: {guard.lastUpdated.toLocaleString('pt-BR')} · Dia de referência:{' '}
+          {guard.day || 'não informado'} (Pacífico)
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
           <p className="text-sm text-muted-foreground">Estado do Cost Guard</p>
@@ -197,9 +261,67 @@ export default function GASPage() {
           </a>
         </div>
       </section>
+      <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+        <h2 className="text-base font-semibold">Evolução diária do Firestore</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Últimos 14 dias registrados pelo monitor, na janela diária do Pacífico. Cada ponto mostra
+          o percentual medido no último monitoramento daquele dia.
+        </p>
+        {historyStatus === 'loading' ? (
+          <p className="mt-4 text-sm text-muted-foreground">Carregando histórico…</p>
+        ) : historyStatus === 'error' ? (
+          <p className="mt-4 text-sm text-amber-600">
+            Não foi possível consultar o histórico. Verifique as regras Firestore e a permissão TI.
+          </p>
+        ) : history.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Ainda não há amostras históricas. Elas serão criadas quando o monitor de cotas executar
+            após o deploy do backend.
+          </p>
+        ) : (
+          <div className="mt-4 h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={history} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <YAxis unit="%" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="reads"
+                  name="Leituras"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={history.length <= 7}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="writes"
+                  name="Gravações"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={history.length <= 7}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="deletes"
+                  name="Exclusões"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dot={history.length <= 7}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </section>
       <p className="text-xs text-muted-foreground">
-        Evolução por dia e semana, armazenamento e Hosting dependem de uma série histórica real
-        (GAS-03). Estes gráficos mostram somente a situação atual.
+        Dados de Hosting e Storage exigem integração separada com o Cloud Monitoring. Os gráficos de
+        evolução acima usam apenas amostras reais do Firestore.
       </p>
     </main>
   );
