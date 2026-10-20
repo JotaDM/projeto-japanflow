@@ -416,7 +416,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .filter((value): value is string => Boolean(value))
           .map((value) => value.trim())
       );
-      return tasks.filter((task) => aliases.has(String(task.assigneeId || '').trim()));
+      return tasks.filter((task) =>
+        [...(task.assigneeIds || []), task.assigneeId].some((id) => aliases.has(String(id || '').trim()))
+      );
     },
     [tasks, users]
   );

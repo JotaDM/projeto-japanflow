@@ -633,34 +633,23 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
       const boletoOnly = hasBoleto && !hasNF;
       const trocaOnly = !hasNF && !hasBoleto && isTroca === 'sim';
 
-      // Routing: NF+Boleto → Carol (emp-15) if toggle, else Patrícia (emp-1).
-      // NF only → Carol if toggle, else Patrícia (emp-1).
-      // Boleto only → Financeiro setor (sem alteração).
-      // TROCA only → Financeiro setor.
-      let targetAssignee: string = '';
-      let targetSector: string | null = 'financeiro';
-      let targetName = 'Financeiro';
-      if (nfWithBoleto) {
-        if (nfBoletoToCarolEnabled) {
-          targetAssignee = 'emp-11';
-          targetSector = null;
-          targetName = 'Carol';
-        } else {
-          targetAssignee = 'emp-1';
-          targetSector = null;
-          targetName = 'Patrícia';
-        }
-      } else if (nfOnly) {
-        if (nfToCarolEnabled) {
-          targetAssignee = 'emp-11';
-          targetSector = null;
-          targetName = 'Carol';
-        } else {
-          targetAssignee = 'emp-1';
-          targetSector = null;
-          targetName = 'Patrícia';
-        }
+      // One shared task for Patricia and Carol; statuses stay synchronized in one document.
+      const financialOwners = users.filter(
+        (user) => user.active !== false && ['patricia', 'carol'].includes(user.username.trim().toLowerCase())
+      );
+      const financialOwnerIds = ['patricia', 'carol'].map(
+        (username) => financialOwners.find((user) => user.username.trim().toLowerCase() === username)?.id
+      );
+      const sharedFinancialTask = hasNF || hasBoleto;
+      if (sharedFinancialTask && financialOwnerIds.some((id) => !id)) {
+        toast.error('Não foi possível localizar Patrícia e Carol ativas. Nenhuma tarefa financeira foi criada.');
+        setUploading(false);
+        return;
       }
+      const targetAssignees = sharedFinancialTask ? (financialOwnerIds as string[]) : [];
+      const targetAssignee = targetAssignees[0] || '';
+      const targetSector: string | null = sharedFinancialTask ? null : 'financeiro';
+      const targetName = sharedFinancialTask ? 'Patrícia e Carol' : 'Financeiro';
 
       const enderecoPrefix = enderecoDiferente ? '🚨 ENDEREÇO DIFERENTE - ' : '';
       const finTitle = nfWithBoleto
@@ -676,6 +665,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
         status: 'todo',
         priority: 'high',
         assignee_id: targetAssignee,
+        ...(sharedFinancialTask ? { assignee_ids: targetAssignees } : {}),
         created_by: currentUser.id,
         deadline: deadlineFinanceiro.toISOString().split('T')[0],
         sector: targetSector,
@@ -685,9 +675,9 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
         created_at: Timestamp.now(),
         updated_at: Timestamp.now(),
       });
-      if (targetAssignee) {
+      for (const assignee of targetAssignees) {
         await addDoc(collection(db, 'notifications'), {
-          user_id: targetAssignee,
+          user_id: assignee,
           message: `${finTitle}`,
           type: 'task_created',
           read: false,
