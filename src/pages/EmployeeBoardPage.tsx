@@ -39,7 +39,8 @@ const EmployeeBoardPage = () => {
       ? permissions.some((permission) => permission.granterId === currentUser.id)
       : false;
 
-  const showCreateTask = isAdmin || hasPermissions;
+  const isSales = currentUser?.sectors?.includes('vendas') === true;
+  const showCreateTask = isAdmin || isSales || hasPermissions;
 
   const boardTitle = isAdmin ? `Quadro de ${viewUser?.name ?? 'colaborador'}` : 'Meu Quadro';
 

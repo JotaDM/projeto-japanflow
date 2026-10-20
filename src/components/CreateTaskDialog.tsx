@@ -104,6 +104,8 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
   const [ocrLoading, setOcrLoading] = useState(false);
 
   const isAdmin = currentUser?.role === 'admin';
+  const isSales = currentUser?.sectors?.includes('vendas') === true;
+  const canCreateForAll = isAdmin || isSales;
 
   const userPermissions = currentUser
     ? permissions.filter((p) => p.granterId === currentUser.id)
@@ -115,16 +117,16 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
     .filter((p) => p.targetType === 'sector')
     .map((p) => p.targetValue);
 
-  const assignableUsers = isAdmin
+  const assignableUsers = canCreateForAll
     ? users.filter((u) => (u.role === 'employee' || u.role === 'admin') && u.active !== false)
     : users.filter((u) => allowedEmployeeIds.includes(u.id) && u.active !== false);
 
-  const assignableSectors = isAdmin
+  const assignableSectors = canCreateForAll
     ? (Object.keys(SECTOR_LABELS) as Sector[])
     : (Object.keys(SECTOR_LABELS) as Sector[]).filter((s) => allowedSectors.includes(s));
 
-  const hasEmployeePerms = isAdmin || allowedEmployeeIds.length > 0;
-  const hasSectorPerms = sectorAssignEnabled && (isAdmin || allowedSectors.length > 0);
+  const hasEmployeePerms = canCreateForAll || allowedEmployeeIds.length > 0;
+  const hasSectorPerms = sectorAssignEnabled && (canCreateForAll || allowedSectors.length > 0);
   const hasAnyPerms = hasEmployeePerms || hasSectorPerms;
 
   const effectiveAssignMode = preselectedAssignee
@@ -778,7 +780,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
       (effectiveAssignMode === 'sector' && sector));
 
   if (permissionsLoading) return null;
-  if (!isAdmin && !hasAnyPerms && !preselectedAssignee) return null;
+  if (!canCreateForAll && !hasAnyPerms && !preselectedAssignee) return null;
 
   return (
     <Dialog
