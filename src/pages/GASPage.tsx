@@ -62,6 +62,8 @@ export default function GASPage() {
   const { authenticatedUser, isActingAsTi } = useApp();
   const isTi = Boolean(
     authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    authenticatedUser?.username?.trim().toLowerCase() === 'joe_' ||
+    authenticatedUser?.username?.trim().toLowerCase() === 'ryan' ||
     (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
     isActingAsTi
   );
