@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 
 import { useApp } from '@/contexts/AppContext';
 import { useTaskPermissions } from '@/hooks/useTaskPermissions';
+import { canCreateTasksForAll } from '@/lib/taskCreateAccess';
 import KanbanBoard from '@/components/KanbanBoard';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import EmployeeCalendar from '@/components/EmployeeCalendar';
@@ -39,8 +40,8 @@ const EmployeeBoardPage = () => {
       ? permissions.some((permission) => permission.granterId === currentUser.id)
       : false;
 
-  const isSales = currentUser?.sectors?.includes('vendas') === true;
-  const showCreateTask = isAdmin || isSales || hasPermissions;
+  const canCreateForAll = canCreateTasksForAll(currentUser);
+  const showCreateTask = canCreateForAll || hasPermissions;
 
   const boardTitle = isAdmin ? `Quadro de ${viewUser?.name ?? 'colaborador'}` : 'Meu Quadro';
 

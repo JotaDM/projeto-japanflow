@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useTaskPermissions } from '@/hooks/useTaskPermissions';
+import { canCreateTasksForAll } from '@/lib/taskCreateAccess';
 import { Priority, Sector, SECTOR_LABELS } from '@/types';
 import {
   Dialog,
@@ -104,8 +105,8 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
   const [ocrLoading, setOcrLoading] = useState(false);
 
   const isAdmin = currentUser?.role === 'admin';
-  const isSales = currentUser?.sectors?.includes('vendas') === true;
-  const canCreateForAll = isAdmin || isSales;
+  const canCreateForAll = canCreateTasksForAll(currentUser);
+  
 
   const userPermissions = currentUser
     ? permissions.filter((p) => p.granterId === currentUser.id)
