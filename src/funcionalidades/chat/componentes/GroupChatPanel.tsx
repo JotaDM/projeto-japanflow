@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Paperclip, Image, FileText, Pencil, X, Check } from 'lucide-react';
+import { Send, Paperclip, Image, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useGroupChat, GroupMessage } from '@/funcionalidades/chat/hooks/useGroupChat';
@@ -17,11 +17,9 @@ interface GroupChatPanelProps {
 
 const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
   const { authenticatedUser: currentUser, users } = useApp();
-  const { messages, sendMessage, editMessage } = useGroupChat(groupId);
+  const { messages, sendMessage } = useGroupChat(groupId);
 
   const [text, setText] = useState('');
-  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -120,13 +118,6 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
     }
   };
 
-  const handleEditSave = (msgId: string) => {
-    if (!editText.trim()) return;
-    void editMessage(msgId, editText.trim());
-    setEditingMsgId(null);
-    setEditText('');
-  };
-
   const renderMessage = (msg: GroupMessage) => {
     const isMe = msg.sender_username === currentUser.username;
     const senderUser = users.find((u) => u.username === msg.sender_username);
@@ -148,92 +139,49 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
             </p>
           )}
 
-          {editingMsgId === msg.id ? (
-            <div className="flex items-center gap-1">
-              <Input
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleEditSave(msg.id)}
-                className="h-8 bg-background text-xs text-foreground"
-                autoFocus
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={() => handleEditSave(msg.id)}
-              >
-                <Check className="h-3 w-3" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={() => setEditingMsgId(null)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : (
-            <>
-              {msg.attachment_url && !msg.deleted && (
-                <div className="mb-2">
-                  {msg.attachment_type === 'image' && (
-                    <SafeChatImage
-                      src={msg.attachment_url}
-                      alt="Imagem enviada no grupo"
-                      className="max-h-56 max-w-full rounded-xl object-cover"
-                    />
-                  )}
+          <>
+            {msg.attachment_url && !msg.deleted && (
+              <div className="mb-2">
+                {msg.attachment_type === 'image' && (
+                  <SafeChatImage
+                    src={msg.attachment_url}
+                    alt="Imagem enviada no grupo"
+                    className="max-h-56 max-w-full rounded-xl object-cover"
+                  />
+                )}
 
-                  {msg.attachment_type === 'file' && (
-                    <a
-                      href={msg.attachment_url}
-                      download={msg.attachment_name || undefined}
-                      className="flex items-center gap-2 break-all text-xs underline"
-                    >
-                      <FileText className="h-4 w-4 shrink-0" />
-                      {msg.attachment_name}
-                    </a>
-                  )}
-                </div>
-              )}
-
-              <p className={cn('whitespace-pre-wrap break-words', msg.deleted && 'italic')}>
-                {msg.content}
-              </p>
-
-              <div className="mt-1 flex items-center gap-1">
-                <span className={cn('text-[10px]', isMe ? 'opacity-60' : 'text-muted-foreground')}>
-                  {msg.created_at
-                    ? new Date(msg.created_at).toLocaleTimeString('pt-BR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'agora'}
-                </span>
-
-                {msg.edited && !msg.deleted && (
-                  <span className="text-[9px] opacity-50">(editada)</span>
+                {msg.attachment_type === 'file' && (
+                  <a
+                    href={msg.attachment_url}
+                    download={msg.attachment_name || undefined}
+                    className="flex items-center gap-2 break-all text-xs underline"
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    {msg.attachment_name}
+                  </a>
                 )}
               </div>
-            </>
-          )}
+            )}
 
-          {isMe && !msg.deleted && editingMsgId !== msg.id && (
-            <div className="absolute -top-3 right-0 hidden gap-0.5 rounded-md border border-border bg-card shadow-sm group-hover:flex">
-              <button
-                onClick={() => {
-                  setEditingMsgId(msg.id);
-                  setEditText(msg.content);
-                }}
-                className="rounded-md p-1 hover:bg-secondary"
-                aria-label="Editar mensagem"
-              >
-                <Pencil className="h-3 w-3 text-muted-foreground" />
-              </button>
+            <p className={cn('whitespace-pre-wrap break-words', msg.deleted && 'italic')}>
+              {msg.content}
+            </p>
+
+            <div className="mt-1 flex items-center gap-1">
+              <span className={cn('text-[10px]', isMe ? 'opacity-60' : 'text-muted-foreground')}>
+                {msg.created_at
+                  ? new Date(msg.created_at).toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'agora'}
+              </span>
+
+              {msg.edited && !msg.deleted && (
+                <span className="text-[9px] opacity-50">(editada)</span>
+              )}
             </div>
-          )}
+          </>
         </div>
       </div>
     );

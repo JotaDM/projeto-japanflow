@@ -131,22 +131,24 @@ service cloud.firestore {
         && request.resource.data.receiverId is string
         && request.resource.data.receiverId != currentUserId()
         && request.resource.data.content is string;
+      // Texto enviado é imutável. Autor pode somente apagar logicamente,
+      // destinatário pode somente marcar como lida.
       allow update: if participant(resource.data)
         && request.resource.data.senderId == resource.data.senderId
         && request.resource.data.receiverId == resource.data.receiverId
         && (
           (
             resource.data.senderId == currentUserId()
-            && request.resource.data.diff(resource.data)
-              .affectedKeys()
-              .hasOnly(['content', 'edited', 'deleted'])
+            && resource.data.get('deleted', false) != true
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleted', 'content'])
+            && request.resource.data.deleted == true
+            && request.resource.data.content == 'Mensagem apagada'
           )
           ||
           (
             resource.data.receiverId == currentUserId()
-            && request.resource.data.diff(resource.data)
-              .affectedKeys()
-              .hasOnly(['read'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+            && request.resource.data.read == true
           )
         );
       allow delete: if false;
@@ -196,27 +198,17 @@ service cloud.firestore {
         && request.resource.data.content is string
         && request.resource.data.deleted == false
         && request.resource.data.edited == false;
+      // Somente exclusão lógica, nunca edição de mensagem.
       allow update: if isGroupMember(resource.data.group_id)
         && resource.data.sender_id == currentUserId()
         && resource.data.deleted == false
-        && request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly(['content', 'edited', 'deleted', 'updated_at'])
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['content', 'deleted', 'updated_at'])
         && request.resource.data.sender_id == resource.data.sender_id
         && request.resource.data.group_id == resource.data.group_id
         && request.resource.data.sender_username == resource.data.sender_username
-        && (
-          (
-            request.resource.data.deleted == false
-            && request.resource.data.edited == true
-            && request.resource.data.content is string
-          )
-          ||
-          (
-            request.resource.data.deleted == true
-            && request.resource.data.content == 'Mensagem apagada'
-          )
-        );
+        && request.resource.data.deleted == true
+        && request.resource.data.content == 'Mensagem apagada';
       allow delete: if false;
     }
 

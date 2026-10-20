@@ -11,7 +11,8 @@ function isBenignAbortedRequest(url: string, errorText?: string | null) {
 
   if (
     aborted &&
-    url.includes('firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel')
+    /\/google\.firestore\.v1\.Firestore\/(Listen|Write)\/channel(?:\?|$)/.test(url) &&
+    /^http:\/\/127\.0\.0\.1:8085\//.test(url)
   ) {
     return true;
   }
@@ -82,6 +83,35 @@ export async function login(page: Page) {
   if (!user || !password) {
     throw new Error('Defina QA_ADMIN_USER e QA_ADMIN_PASSWORD antes de executar o QA.');
   }
+
+  // QA usa Auth/Firestore emuladores. A API web externa não está emulada.
+  // Simulamos SOMENTE a leitura do flag de troca de senha para o usuário seed QA.
+  // Os fluxos reais de redefinição de senha exigem testes de integração próprios.
+  await page.route('**/account/password-reset-status', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ mustChangePassword: false }),
+    });
+  });
+
+  // QA: a API administrativa de histórico não roda nos emuladores.
+  // Simula apenas uma página vazia do histórico, sem acessar produção.
+  await page.route('**/admin/chat-history*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      return route.continue();
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        messages: [],
+        cursor: null,
+      }),
+    });
+  });
 
   await page.goto('/login');
 

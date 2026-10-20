@@ -133,9 +133,17 @@ try {
         updated_at: new Date(),
       })
     ));
-  await test('Autor edita sua mensagem', () =>
-    assertSucceeds(
+  await test('Autor não pode editar sua mensagem', () =>
+    assertFails(
       alice.firestore().doc(m).update({ content: 'Editada', edited: true, updated_at: new Date() })
+    ));
+  await test('Autor pode apagar logicamente mensagem do grupo', () =>
+    assertSucceeds(
+      alice.firestore().doc(m).update({
+        deleted: true,
+        content: 'Mensagem apagada',
+        updated_at: new Date(),
+      })
     ));
   await test('Outro membro não edita mensagem alheia', () =>
     assertFails(

@@ -151,38 +151,6 @@ export function useGroupChat(groupId: string | null) {
     [groupId, authenticatedUserId, authenticatedUsername]
   );
 
-  const editMessage = useCallback(
-    async (msgId: string, newContent: string) => {
-      if (!authenticatedUserId) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      const messageRef = doc(db, 'group_messages', msgId);
-      const messageSnapshot = await getDoc(messageRef);
-
-      if (!messageSnapshot.exists()) {
-        throw new Error('Mensagem não encontrada');
-      }
-
-      const data = messageSnapshot.data();
-
-      if (data.sender_id !== authenticatedUserId) {
-        throw new Error('Você só pode editar suas próprias mensagens');
-      }
-
-      if (data.deleted === true) {
-        throw new Error('Não é possível editar uma mensagem apagada');
-      }
-
-      await updateDoc(messageRef, {
-        content: newContent,
-        edited: true,
-        updated_at: Timestamp.now(),
-      });
-    },
-    [authenticatedUserId]
-  );
-
   const deleteMessage = useCallback(
     async (msgId: string) => {
       if (!authenticatedUserId) {
@@ -214,7 +182,6 @@ export function useGroupChat(groupId: string | null) {
   return {
     messages,
     sendMessage,
-    editMessage,
     deleteMessage,
   };
 }

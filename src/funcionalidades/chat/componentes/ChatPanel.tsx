@@ -3,20 +3,8 @@ import { useApp } from '@/contexts/AppContext';
 import { User, ChatMessage } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import {
-  Send,
-  Paperclip,
-  Mic,
-  Image,
-  FileText,
-  Pencil,
-  X,
-  Check,
-  MicOff,
-  CheckCheck,
-} from 'lucide-react';
+import { Send, Paperclip, Mic, Image, FileText, MicOff, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useChat } from '@/funcionalidades/chat/hooks/useChat';
@@ -37,11 +25,9 @@ interface ChatPanelProps {
 
 const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const { authenticatedUser: currentUser, users } = useApp();
-  const { messages, sendMessage, editMessage, getMessagesForChat } = useChat();
+  const { messages, sendMessage, getMessagesForChat } = useChat();
 
   const [text, setText] = useState('');
-  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
   const [recording, setRecording] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -403,13 +389,6 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     }
   };
 
-  const handleEditSave = (msgId: string) => {
-    if (!editText.trim()) return;
-    void editMessage(msgId, editText.trim());
-    setEditingMsgId(null);
-    setEditText('');
-  };
-
   const renderMessage = (msg: ChatMessage) => {
     const isMe = msg.senderId === currentUser.id;
     const senderUser = users.find((u) => u.id === msg.senderId);
@@ -432,105 +411,62 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
             </p>
           )}
 
-          {editingMsgId === msg.id ? (
-            <div className="flex items-center gap-1">
-              <Input
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleEditSave(msg.id)}
-                className="h-8 bg-background text-xs text-foreground"
-                autoFocus
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={() => handleEditSave(msg.id)}
-              >
-                <Check className="h-3 w-3" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={() => setEditingMsgId(null)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : (
-            <>
-              {msg.attachmentUrl && !msg.deleted && (
-                <div className="mb-2">
-                  {msg.attachmentType === 'image' && (
-                    <SafeChatImage
-                      src={msg.attachmentUrl}
-                      alt="Imagem enviada no chat"
-                      className="max-h-56 max-w-full cursor-pointer rounded-xl object-cover transition-opacity hover:opacity-90"
-                      onClick={() => setEnlargedImage(msg.attachmentUrl || null)}
-                    />
-                  )}
-
-                  {msg.attachmentType === 'audio' && (
-                    <audio controls src={msg.attachmentUrl} className="max-w-full" />
-                  )}
-
-                  {msg.attachmentType === 'file' && (
-                    <a
-                      href={msg.attachmentUrl}
-                      download={msg.attachmentName}
-                      className="flex items-center gap-2 break-all text-xs underline"
-                    >
-                      <FileText className="h-4 w-4 shrink-0" />
-                      <span className="min-w-0">{msg.attachmentName}</span>
-                    </a>
-                  )}
-                </div>
-              )}
-
-              <p className={cn('whitespace-pre-wrap break-words', msg.deleted && 'italic')}>
-                {msg.content}
-              </p>
-
-              <div className="mt-1 flex items-center gap-1">
-                <span className={cn('text-[10px]', isMe ? 'opacity-60' : 'text-muted-foreground')}>
-                  {new Date(msg.timestamp).toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                  })}{' '}
-                  {new Date(msg.timestamp).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-
-                {msg.edited && !msg.deleted && (
-                  <span className="text-[9px] opacity-50">(editada)</span>
-                )}
-
-                {isMe && !msg.deleted && (
-                  <CheckCheck
-                    className={cn('ml-0.5 h-3.5 w-3.5', read ? 'text-blue-400' : 'opacity-40')}
+          <>
+            {msg.attachmentUrl && !msg.deleted && (
+              <div className="mb-2">
+                {msg.attachmentType === 'image' && (
+                  <SafeChatImage
+                    src={msg.attachmentUrl}
+                    alt="Imagem enviada no chat"
+                    className="max-h-56 max-w-full cursor-pointer rounded-xl object-cover transition-opacity hover:opacity-90"
+                    onClick={() => setEnlargedImage(msg.attachmentUrl || null)}
                   />
                 )}
-              </div>
-            </>
-          )}
 
-          {isMe && !msg.deleted && editingMsgId !== msg.id && (
-            <div className="absolute -top-3 right-0 hidden gap-0.5 rounded-md border border-border bg-card shadow-sm group-hover:flex">
-              <button
-                onClick={() => {
-                  setEditingMsgId(msg.id);
-                  setEditText(msg.content);
-                }}
-                className="rounded-md p-1 hover:bg-secondary"
-                aria-label="Editar mensagem"
-              >
-                <Pencil className="h-3 w-3 text-muted-foreground" />
-              </button>
+                {msg.attachmentType === 'audio' && (
+                  <audio controls src={msg.attachmentUrl} className="max-w-full" />
+                )}
+
+                {msg.attachmentType === 'file' && (
+                  <a
+                    href={msg.attachmentUrl}
+                    download={msg.attachmentName}
+                    className="flex items-center gap-2 break-all text-xs underline"
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0">{msg.attachmentName}</span>
+                  </a>
+                )}
+              </div>
+            )}
+
+            <p className={cn('whitespace-pre-wrap break-words', msg.deleted && 'italic')}>
+              {msg.content}
+            </p>
+
+            <div className="mt-1 flex items-center gap-1">
+              <span className={cn('text-[10px]', isMe ? 'opacity-60' : 'text-muted-foreground')}>
+                {new Date(msg.timestamp).toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                })}{' '}
+                {new Date(msg.timestamp).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+
+              {msg.edited && !msg.deleted && (
+                <span className="text-[9px] opacity-50">(editada)</span>
+              )}
+
+              {isMe && !msg.deleted && (
+                <CheckCheck
+                  className={cn('ml-0.5 h-3.5 w-3.5', read ? 'text-blue-400' : 'opacity-40')}
+                />
+              )}
             </div>
-          )}
+          </>
         </div>
       </div>
     );

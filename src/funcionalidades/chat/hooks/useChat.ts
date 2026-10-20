@@ -127,14 +127,6 @@ export const useChat = () => {
     [currentUser?.id, currentUser?.name, currentUser?.username]
   );
 
-  const editMessage = useCallback(async (messageId: string, newContent: string) => {
-    try {
-      await updateDoc(doc(db, 'messages', messageId), { content: newContent, edited: true });
-    } catch (error) {
-      console.error('Erro ao editar mensagem:', error);
-    }
-  }, []);
-
   const deleteMessage = useCallback(async (messageId: string) => {
     try {
       await updateDoc(doc(db, 'messages', messageId), {
@@ -245,7 +237,6 @@ export const useChat = () => {
   return {
     messages,
     sendMessage,
-    editMessage,
     deleteMessage,
     markMessageAsRead,
     getMessagesForChat,

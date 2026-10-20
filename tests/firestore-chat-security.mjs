@@ -88,6 +88,20 @@ try {
     await assertFails(anonymous.doc(messagePath).get());
   });
 
+  await test('Autor não pode editar conteúdo', async () => {
+    await assertFails(userA.doc(messagePath).update({ content: 'Editada', edited: true }));
+  });
+  await test('Destinatário não pode editar conteúdo', async () => {
+    await assertFails(userB.doc(messagePath).update({ content: 'Editada' }));
+  });
+  await test('Autor pode apagar logicamente', async () => {
+    await assertSucceeds(
+      userA.doc(messagePath).update({ content: 'Mensagem apagada', deleted: true })
+    );
+  });
+  await test('Destinatário pode marcar como lida', async () => {
+    await assertSucceeds(userB.doc(messagePath).update({ read: true }));
+  });
   await test('Terceiro funcionário não pode editar', async () => {
     await assertFails(
       userC.doc(messagePath).update({
