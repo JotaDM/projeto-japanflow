@@ -106,7 +106,6 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
 
   const isAdmin = currentUser?.role === 'admin';
   const canCreateForAll = canCreateTasksForAll(currentUser);
-  
 
   const userPermissions = currentUser
     ? permissions.filter((p) => p.granterId === currentUser.id)
