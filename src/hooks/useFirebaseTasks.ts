@@ -23,6 +23,7 @@ interface FirestoreTaskData {
   status?: unknown;
   priority?: unknown;
   assignee_id?: unknown;
+  assignee_ids?: unknown;
   assigneeId?: unknown;
   created_by?: unknown;
   createdBy?: unknown;
@@ -106,6 +107,7 @@ const mapTask = (id: string, data: FirestoreTaskData): TaskWithArchive => {
     status,
     priority: String(data.priority || 'medium') as Priority,
     assigneeId: String(data.assignee_id ?? data.assigneeId ?? ''),
+    assigneeIds: Array.isArray(data.assignee_ids) ? data.assignee_ids.map(String) : undefined,
     createdBy: String(data.created_by ?? data.createdBy ?? ''),
     deadline: String(data.deadline || ''),
     sector: data.sector ? (String(data.sector) as Sector) : undefined,

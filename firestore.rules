@@ -266,6 +266,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Operational tasks: active staff may update status; transfer is forbidden to motoboys.
+    match /tasks/{taskId} {
+      allow read, create, delete: if isActive();
+      allow update: if isActive() && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignee_id', 'assignee_ids', 'assigneeId'])
+        || (
+          isAdmin()
+          || (
+            exists(currentUserPath())
+            && get(currentUserPath()).data.active != false
+            && !(('sectors' in get(currentUserPath()).data) && get(currentUserPath()).data.sectors.hasAny(['motoboys']))
+          )
+        )
+      );
+    }
+
     // Colecoes operacionais nao cobertas pelas regras especificas.
     match /{collection}/{document=**} {
       allow read, write: if isActive()
@@ -283,7 +299,8 @@ service cloud.firestore {
         && collection != 'system_usage_daily'
         && collection != 'system_runtime'
         && collection != 'system_monitor_state'
-        && collection != 'messages';
+        && collection != 'messages'
+        && collection != 'tasks';
     }
   }
 }

@@ -47,7 +47,6 @@ import {
 } from 'firebase/firestore';
 import { uploadImage } from '@/lib/uploadImage';
 import { sendPushToUser } from '@/hooks/usePushNotifications';
-import { useFeaturePermissions } from '@/hooks/useFeaturePermissions';
 
 interface TaskDetailDialogProps {
   task: Task;
@@ -67,7 +66,6 @@ const formatDuration = (ms: number) => {
 const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) => {
   const { currentUser, users, updateTask, deleteTask, updateTaskStatus, updateTaskPriority } =
     useApp();
-  const { hasFeature } = useFeaturePermissions();
   const [newComment, setNewComment] = useState('');
   const [responseText, setResponseText] = useState(task.response || '');
   const [showResponseInput, setShowResponseInput] = useState(false);
@@ -189,11 +187,13 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
   }, [open, task.id]);
   const isOverdue = new Date(task.deadline) < new Date() && task.status !== 'done';
   const isAdmin = currentUser?.role === 'admin';
-  const isAssignee = currentUser?.id === task.assigneeId;
+  const isAssignee = Boolean(
+    currentUser && [task.assigneeId, ...(task.assigneeIds || [])].includes(currentUser.id)
+  );
   const isCreator = currentUser?.id === task.createdBy;
   const canRespond = isAssignee || isAdmin;
   const canDelete = isAdmin || isCreator;
-  const canTransfer = isAdmin || hasFeature(currentUser?.id, 'transfer_tasks');
+  const canTransfer = Boolean(currentUser?.active && !currentUser.sectors?.includes('motoboys'));
 
   // Financial sector task from separação detection
   const isFinancialSeparacao =
@@ -1080,7 +1080,11 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                         </SelectTrigger>
                         <SelectContent>
                           {users
-                            .filter((u) => u.id !== task.assigneeId)
+                            .filter(
+                              (u) =>
+                                u.active !== false &&
+                                ![task.assigneeId, ...(task.assigneeIds || [])].includes(u.id)
+                            )
                             .map((u) => (
                               <SelectItem key={u.id} value={u.id}>
                                 {u.name}
@@ -1095,6 +1099,7 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                           onClick={async () => {
                             await updateDoc(doc(db, 'tasks', task.id), {
                               assignee_id: transferTarget,
+                              assignee_ids: [transferTarget],
                               updated_at: Timestamp.now(),
                             });
                             const targetUser = users.find((u) => u.id === transferTarget);
