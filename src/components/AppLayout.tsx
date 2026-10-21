@@ -93,9 +93,8 @@ const AppLayout = () => {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
   }, [sidebarWidth]);
-  const splashRequested = Boolean(
-    (location.state as { showLoginSplash?: boolean } | null)?.showLoginSplash
-  );
+  // 1.2-A: SplashScreen temporariamente desabilitada (componente preservado).
+  const splashRequested = false;
   const [showLoginSplash, setShowLoginSplash] = useState(splashRequested);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;

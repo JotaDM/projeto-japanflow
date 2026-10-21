@@ -136,7 +136,7 @@ const LoginPage = () => {
 
       navigate(user.role === 'admin' ? '/admin' : '/board', {
         replace: true,
-        state: { showLoginSplash: true },
+        state: null,
       });
     } catch (error) {
       console.warn('Falha no login:', error);
