@@ -107,7 +107,28 @@ export function subscribeToAuthChanges(
       const profile = await loadProfile(firebaseUser);
       callback(profile);
     } catch (error) {
-      console.warn('Sessão Firebase sem perfil válido:', error);
+      console.warn('Falha ao carregar perfil da sessão Firebase:', error);
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : '';
+      // Falhas transitorias nao devem revogar uma autenticacao valida.
+      // Firestore Rules continuam protegendo dados enquanto o perfil nao carrega.
+      const transientCodes = new Set([
+        'unavailable',
+        'deadline-exceeded',
+        'resource-exhausted',
+        'cancelled',
+        'firestore/unavailable',
+        'firestore/deadline-exceeded',
+        'firestore/resource-exhausted',
+        'firestore/cancelled',
+      ]);
+      if (transientCodes.has(code)) {
+        // Nao deslogar por queda de rede. Manter estado anterior ate novo evento Auth.
+        return;
+      }
+      // Contas sem vinculo, desativadas ou acesso negado ainda sao encerradas.
       await firebaseSignOut(auth).catch(() => undefined);
       callback(null);
     } finally {

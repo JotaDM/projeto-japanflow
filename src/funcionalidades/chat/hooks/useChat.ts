@@ -23,6 +23,9 @@ import { ChatMessage } from '@/types';
 
 interface MessageData {
   content: string;
+  replyToId?: string | null;
+  replyToContent?: string | null;
+  replyToSenderId?: string | null;
   senderId: string;
   receiverId: string;
   timestamp: Timestamp | FieldValue;
@@ -36,6 +39,9 @@ interface MessageData {
 
 interface SendMessageInput {
   content: string;
+  replyToId?: string;
+  replyToContent?: string;
+  replyToSenderId?: string;
   receiverId: string;
   attachmentUrl?: string;
   attachmentType?: 'image' | 'file' | 'audio';
@@ -60,6 +66,9 @@ function toChatMessage(snapshot: QueryDocumentSnapshot<DocumentData>): ChatMessa
   return {
     id: snapshot.id,
     content: data.content,
+    replyToId: data.replyToId ?? undefined,
+    replyToContent: data.replyToContent ?? undefined,
+    replyToSenderId: data.replyToSenderId ?? undefined,
     senderId: data.senderId,
     receiverId: data.receiverId,
     timestamp: new Date(time).toISOString(),
@@ -82,6 +91,9 @@ export const useChat = () => {
 
       const newMessage: MessageData = {
         content: msg.content,
+        replyToId: msg.replyToId ?? null,
+        replyToContent: msg.replyToContent ?? null,
+        replyToSenderId: msg.replyToSenderId ?? null,
         senderId: currentUser.id,
         receiverId: msg.receiverId,
         timestamp: serverTimestamp(),

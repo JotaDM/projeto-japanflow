@@ -23,6 +23,8 @@ import ReminderPopup from './ReminderPopup';
 import BulletinAlertPopup from './BulletinAlertPopup';
 import AdminPopupAlert from './AdminPopupAlert';
 import NewTaskPopup from './NewTaskPopup';
+import RyanAnnouncements from './RyanAnnouncements';
+import ReportProblemButton from './ReportProblemButton';
 import InventoryHeaderBanner from './InventoryHeaderBanner';
 import ForcePasswordChangeDialog from '@/components/ForcePasswordChangeDialog';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
@@ -93,9 +95,8 @@ const AppLayout = () => {
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
   }, [sidebarWidth]);
-  const splashRequested = Boolean(
-    (location.state as { showLoginSplash?: boolean } | null)?.showLoginSplash
-  );
+  // 1.2-A: SplashScreen temporariamente desabilitada (componente preservado).
+  const splashRequested = false;
   const [showLoginSplash, setShowLoginSplash] = useState(splashRequested);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -207,6 +208,10 @@ const AppLayout = () => {
       <BulletinAlertPopup />
       <AdminPopupAlert />
       <NewTaskPopup />
+      <div className="fixed bottom-4 right-4 z-40 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-xl border bg-background/95 p-2 shadow-lg">
+        <RyanAnnouncements />
+        <ReportProblemButton />
+      </div>
       <ForcePasswordChangeDialog />
 
       <div className="flex min-h-[100dvh] overflow-hidden bg-background">

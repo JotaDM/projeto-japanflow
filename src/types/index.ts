@@ -108,6 +108,9 @@ export interface CalendarEvent {
 
 export interface ChatMessage {
   id: string;
+  replyToId?: string;
+  replyToContent?: string;
+  replyToSenderId?: string;
   senderId: string;
   receiverId?: string;
   taskId?: string;
