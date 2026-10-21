@@ -338,7 +338,10 @@ service cloud.firestore {
         && collection != 'system_runtime'
         && collection != 'system_monitor_state'
         && collection != 'messages'
-        && collection != 'tasks';
+        && collection != 'tasks'
+        && collection != 'ryan_announcements'
+        && collection != 'ryan_announcement_acks'
+        && collection != 'user_problem_reports';
     }
   }
 }
