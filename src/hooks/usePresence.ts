@@ -271,8 +271,56 @@ export const usePresence = (userId: string | null) => {
   };
 };
 
+/**
+ * Heartbeat da sessão visível no ERP. Não cria um segundo listener global.
+ * A ausência de heartbeat é tratada como offline pelos consumidores.
+ */
+export const useSelfPresenceHeartbeat = (userId: string | null) => {
+  useEffect(() => {
+    if (!userId) return;
+    let disposed = false;
+    const reference = doc(db, 'presence', userId);
+
+    const heartbeat = () => {
+      if (disposed) return;
+      void setDoc(
+        reference,
+        {
+          user_id: userId,
+          status: 'online',
+          last_seen_at: Timestamp.now(),
+        },
+        { merge: true }
+      ).catch((error) => console.warn('Falha no heartbeat de presença:', error));
+    };
+
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 30_000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') heartbeat();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      // A escrita no encerramento é best-effort. A expiração por tempo é a garantia.
+      void updateDoc(reference, {
+        status: 'offline',
+        last_seen_at: Timestamp.now(),
+      }).catch(() => undefined);
+    };
+  }, [userId]);
+};
+
 export const useAllPresences = () => {
   const [presences, setPresences] = useState<UserPresence[]>([]);
+  // Recalcula estados expirados mesmo que nenhum novo snapshot chegue.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const presenceCollection = collection(db, 'presence');
@@ -300,7 +348,10 @@ export const useAllPresences = () => {
 
   const getStatus = (userId: string): PresenceStatus => {
     const presence = presences.find((item) => item.user_id === userId);
-    return presence?.status ?? 'offline';
+    if (!presence) return 'offline';
+    const lastSeen = presence.last_seen_at.getTime();
+    if (!Number.isFinite(lastSeen) || now - lastSeen > 90_000) return 'offline';
+    return presence.status;
   };
 
   const getPauseInfo = (userId: string) => {

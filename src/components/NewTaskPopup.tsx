@@ -61,7 +61,11 @@ const NewTaskPopup = () => {
 
     const isTaskActive = (message: string) => {
       // Try to find a matching task by title contained in the message; if found and done, skip
-      const match = tasks.find((t) => message.includes(t.title) && t.assigneeId === currentUser.id);
+      const match = tasks.find(
+        (t) =>
+          message.includes(t.title) &&
+          [t.assigneeId, ...(t.assigneeIds || [])].includes(currentUser.id)
+      );
       if (match && match.status === 'done') return false;
       return true;
     };

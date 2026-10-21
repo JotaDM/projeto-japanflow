@@ -282,6 +282,44 @@ service cloud.firestore {
       );
     }
 
+    // Comunicados exclusivos do Ryan, com acesso validado no Firestore.
+    function isRyan() {
+      return isActive() && exists(currentUserPath())
+        && get(currentUserPath()).data.username == 'ryan';
+    }
+
+    match /ryan_announcements/{announcementId} {
+      allow read: if isActive();
+      allow create: if isRyan()
+        && request.resource.data.created_by == currentUserId()
+        && request.resource.data.keys().hasOnly(['title','body','created_by','created_at'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 3000;
+      allow update, delete: if false;
+    }
+
+    match /ryan_announcement_acks/{ackId} {
+      allow read: if isActive();
+      allow create: if isActive()
+        && request.resource.data.user_id == currentUserId()
+        && request.resource.data.announcement_id is string
+        && ackId == request.resource.data.announcement_id + '_' + currentUserId();
+      allow update, delete: if false;
+    }
+
+    match /user_problem_reports/{reportId} {
+      allow create: if isActive()
+        && request.resource.data.user_id == currentUserId()
+        && request.resource.data.status == 'new'
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 10
+        && request.resource.data.description.size() <= 2500;
+      allow read: if isAdmin() || (isActive() && resource.data.user_id == currentUserId());
+      allow update, delete: if isAdmin();
+    }
+
     // Colecoes operacionais nao cobertas pelas regras especificas.
     match /{collection}/{document=**} {
       allow read, write: if isActive()

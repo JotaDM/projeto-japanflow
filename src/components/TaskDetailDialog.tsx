@@ -1083,7 +1083,8 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                             .filter(
                               (u) =>
                                 u.active !== false &&
-                                ![task.assigneeId, ...(task.assigneeIds || [])].includes(u.id)
+                                (u.username?.trim().toLowerCase() === 'patricia' ||
+                                  ![task.assigneeId, ...(task.assigneeIds || [])].includes(u.id))
                             )
                             .map((u) => (
                               <SelectItem key={u.id} value={u.id}>

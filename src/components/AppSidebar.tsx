@@ -27,7 +27,7 @@ import { SECTOR_LABELS, Sector } from '@/types';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import PersonalNotesDialog from '@/components/PersonalNotesDialog';
 import SalesCalculatorDialog from '@/components/SalesCalculatorDialog';
-import { useAllPresences } from '@/hooks/usePresence';
+import { useAllPresences, useSelfPresenceHeartbeat } from '@/hooks/usePresence';
 import { useTabPermissions } from '@/hooks/useTabPermissions';
 import { useFeaturePermissions } from '@/hooks/useFeaturePermissions';
 import { resetLoginSplash } from '@/lib/loginSplash';
@@ -106,6 +106,7 @@ const AppSidebar = ({
   const navigate = useNavigate();
   const location = useLocation();
   const presenceUserId = authenticatedUser?.id || currentUser?.id || null;
+  useSelfPresenceHeartbeat(presenceUserId);
   const { totalUnread } = useUnreadMessages(currentUser?.id || null);
   const { getStatus } = useAllPresences();
   const { isTabEnabled } = useTabPermissions();

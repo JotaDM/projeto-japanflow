@@ -4,7 +4,18 @@ import { User, ChatMessage } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { Send, Paperclip, Mic, Image, FileText, MicOff, CheckCheck } from 'lucide-react';
+import {
+  Send,
+  Paperclip,
+  Mic,
+  Image,
+  FileText,
+  MicOff,
+  CheckCheck,
+  Smile,
+  Reply,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useChat } from '@/funcionalidades/chat/hooks/useChat';
@@ -28,6 +39,36 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const { messages, sendMessage, getMessagesForChat } = useChat();
 
   const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [showEmojis, setShowEmojis] = useState(false);
+  const swipeStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const emojis = [
+    '😀',
+    '😂',
+    '🥰',
+    '😍',
+    '😎',
+    '😭',
+    '😢',
+    '👍',
+    '👏',
+    '🙏',
+    '❤️',
+    '💙',
+    '🔥',
+    '🎉',
+    '✅',
+    '👀',
+    '🤝',
+    '💯',
+    '😅',
+    '😮',
+    '😊',
+    '💪',
+    '🙌',
+    '🤔',
+  ];
   const [recording, setRecording] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -126,8 +167,16 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     void sendMessage({
       receiverId: otherUser.id,
       content: text.trim(),
+      ...(replyTo
+        ? {
+            replyToId: replyTo.id,
+            replyToContent: replyTo.content.slice(0, 180),
+            replyToSenderId: replyTo.senderId,
+          }
+        : {}),
     });
 
+    setReplyTo(null);
     setText('');
     stopTyping();
   };
@@ -173,33 +222,75 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
-    const file = e.target.files?.[0];
+  const handleFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'image' | 'file'
+  ) => {
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!file) return;
-
-    if (type === 'image' || file.type.startsWith('image/')) {
-      void sendImage(file);
+    if (files.length === 0) return;
+    if (files.length > 10) {
+      toast.error('Selecione no máximo 10 arquivos por vez.');
       return;
     }
-
-    // Mantém compatibilidade com anexos antigos; imagens novas usam Firebase Storage.
-    if (file.size > 700 * 1024) {
-      toast.error('Arquivo muito grande para o chat (máx. 700 KB por enquanto)');
+    if (uploadingImage) {
+      toast.info('Aguarde o envio anterior terminar.');
       return;
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      void sendMessage({
-        receiverId: otherUser.id,
-        content: `📎 ${file.name}`,
-        attachmentUrl: reader.result as string,
-        attachmentType: 'file',
-        attachmentName: file.name,
-      });
-    };
-    reader.readAsDataURL(file);
+    setUploadingImage(true);
+    let failed = 0;
+    try {
+      for (const [index, file] of files.entries()) {
+        setUploadProgress(`Enviando ${index + 1} de ${files.length}: ${file.name}`);
+        try {
+          if (type === 'image' || file.type.startsWith('image/')) {
+            if (file.size > 15 * 1024 * 1024) throw new Error('Imagem acima de 15 MB');
+            const participants = [currentUser.id, otherUser.id].sort();
+            const { publicUrl } = await uploadImage(file, {
+              pathPrefix: `chat/private/${participants[0]}/${participants[1]}`,
+              sourceTable: 'messages',
+              sourceField: 'attachmentUrl',
+              uploadedBy: currentUser.id,
+              privateAccess: true,
+            });
+            await sendMessage({
+              receiverId: otherUser.id,
+              content: '📷 Imagem',
+              attachmentUrl: publicUrl,
+              attachmentType: 'image',
+              attachmentName: file.name || 'imagem',
+            });
+          } else {
+            // Evita gravar anexos grandes em base64 no Firestore.
+            if (file.size > 700 * 1024) throw new Error('Arquivo acima de 700 KB');
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                typeof reader.result === 'string'
+                  ? resolve(reader.result)
+                  : reject(new Error('Falha ao ler arquivo'));
+              reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+              reader.readAsDataURL(file);
+            });
+            await sendMessage({
+              receiverId: otherUser.id,
+              content: `📎 ${file.name}`,
+              attachmentUrl: dataUrl,
+              attachmentType: 'file',
+              attachmentName: file.name,
+            });
+          }
+        } catch (error) {
+          failed++;
+          console.error('Falha no anexo:', file.name, error);
+          toast.error(`Não foi possível enviar ${file.name}`);
+        }
+      }
+      if (failed === 0) toast.success(`${files.length} arquivo(s) enviado(s)`);
+    } finally {
+      setUploadProgress(null);
+      setUploadingImage(false);
+    }
   };
 
   const stopMicrophoneStream = () => {
@@ -395,7 +486,33 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     const read = isMe && msg.read;
 
     return (
-      <div key={msg.id} className={cn('group flex', isMe ? 'justify-end' : 'justify-start')}>
+      <div
+        key={msg.id}
+        className={cn('group flex items-center gap-1', isMe ? 'justify-end' : 'justify-start')}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          if (touch) swipeStartRef.current = { id: msg.id, x: touch.clientX, y: touch.clientY };
+        }}
+        onTouchEnd={(event) => {
+          const start = swipeStartRef.current;
+          swipeStartRef.current = null;
+          const touch = event.changedTouches[0];
+          if (!start || start.id !== msg.id || !touch || msg.deleted) return;
+          const dx = touch.clientX - start.x;
+          const dy = touch.clientY - start.y;
+          if (dx > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) setReplyTo(msg);
+        }}
+      >
+        <button
+          type="button"
+          className="rounded-full p-1 opacity-60 hover:bg-accent hover:opacity-100"
+          aria-label="Responder mensagem"
+          title="Responder"
+          disabled={Boolean(msg.deleted)}
+          onClick={() => setReplyTo(msg)}
+        >
+          <Reply className="h-4 w-4" />
+        </button>
         <div
           className={cn(
             'relative max-w-[82%] break-words rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%]',
@@ -412,6 +529,17 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           )}
 
           <>
+            {msg.replyToId && !msg.deleted && (
+              <div className="mb-2 rounded-md border-l-2 border-current bg-background/15 px-2 py-1 text-xs opacity-80">
+                <span className="font-semibold">
+                  Respondendo a{' '}
+                  {msg.replyToSenderId === currentUser.id
+                    ? 'você'
+                    : users.find((u) => u.id === msg.replyToSenderId)?.name || 'mensagem'}
+                </span>
+                <p className="truncate">{msg.replyToContent || 'Mensagem'}</p>
+              </div>
+            )}
             {msg.attachmentUrl && !msg.deleted && (
               <div className="mb-2">
                 {msg.attachmentType === 'image' && (
@@ -518,9 +646,28 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
         </div>
       </div>
 
+      {replyTo && (
+        <div className="flex items-center justify-between border-t bg-muted/50 px-4 py-2 text-xs">
+          <div className="min-w-0">
+            <strong>
+              Respondendo a {replyTo.senderId === currentUser.id ? 'você' : otherUser.name}
+            </strong>
+            <p className="truncate">{replyTo.content}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setReplyTo(null)}
+            aria-label="Cancelar resposta"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
       <div className="flex shrink-0 items-end gap-2 border-t border-border/70 bg-card p-3 md:p-4">
         <input
           ref={imageInputRef}
+          multiple
           type="file"
           accept="image/*"
           className="hidden"
@@ -528,6 +675,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
         />
         <input
           ref={fileInputRef}
+          multiple
           type="file"
           className="hidden"
           onChange={(e) => handleFileSelect(e, 'file')}
@@ -547,6 +695,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           size="icon"
           variant="ghost"
           className="h-9 w-9 shrink-0"
+          disabled={uploadingImage}
           onClick={() => fileInputRef.current?.click()}
         >
           <Paperclip className="h-4 w-4" />
@@ -561,8 +710,36 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           {recording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
         </Button>
 
+        <div className="relative shrink-0">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9"
+            title="Emojis"
+            onClick={() => setShowEmojis((v) => !v)}
+          >
+            <Smile className="h-4 w-4" />
+          </Button>
+          {showEmojis && (
+            <div className="absolute bottom-full left-0 z-50 mb-2 grid w-56 grid-cols-6 gap-1 rounded-lg border bg-popover p-2 shadow-lg">
+              {emojis.map((emoji) => (
+                <button
+                  type="button"
+                  key={emoji}
+                  className="rounded p-1 text-xl hover:bg-accent"
+                  onClick={() => {
+                    setText((v) => v + emoji);
+                    setShowEmojis(false);
+                  }}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <Textarea
-          placeholder={uploadingImage ? 'Enviando imagem…' : 'Digite uma mensagem...'}
+          placeholder={uploadProgress || 'Digite uma mensagem...'}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
