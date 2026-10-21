@@ -417,7 +417,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .map((value) => value.trim())
       );
       return tasks.filter((task) =>
-        [...(task.assigneeIds || []), task.assigneeId].some((id) => aliases.has(String(id || '').trim()))
+        [...(task.assigneeIds || []), task.assigneeId].some((id) =>
+          aliases.has(String(id || '').trim())
+        )
       );
     },
     [tasks, users]

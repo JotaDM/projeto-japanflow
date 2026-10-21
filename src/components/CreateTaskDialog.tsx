@@ -635,14 +635,19 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
 
       // One shared task for Patricia and Carol; statuses stay synchronized in one document.
       const financialOwners = users.filter(
-        (user) => user.active !== false && ['patricia', 'carol'].includes(user.username.trim().toLowerCase())
+        (user) =>
+          user.active !== false &&
+          ['patricia', 'carol'].includes(user.username.trim().toLowerCase())
       );
       const financialOwnerIds = ['patricia', 'carol'].map(
-        (username) => financialOwners.find((user) => user.username.trim().toLowerCase() === username)?.id
+        (username) =>
+          financialOwners.find((user) => user.username.trim().toLowerCase() === username)?.id
       );
       const sharedFinancialTask = hasNF || hasBoleto;
       if (sharedFinancialTask && financialOwnerIds.some((id) => !id)) {
-        toast.error('Não foi possível localizar Patrícia e Carol ativas. Nenhuma tarefa financeira foi criada.');
+        toast.error(
+          'Não foi possível localizar Patrícia e Carol ativas. Nenhuma tarefa financeira foi criada.'
+        );
         setUploading(false);
         return;
       }

@@ -187,7 +187,9 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
   }, [open, task.id]);
   const isOverdue = new Date(task.deadline) < new Date() && task.status !== 'done';
   const isAdmin = currentUser?.role === 'admin';
-  const isAssignee = Boolean(currentUser && [task.assigneeId, ...(task.assigneeIds || [])].includes(currentUser.id));
+  const isAssignee = Boolean(
+    currentUser && [task.assigneeId, ...(task.assigneeIds || [])].includes(currentUser.id)
+  );
   const isCreator = currentUser?.id === task.createdBy;
   const canRespond = isAssignee || isAdmin;
   const canDelete = isAdmin || isCreator;
@@ -1078,7 +1080,11 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                         </SelectTrigger>
                         <SelectContent>
                           {users
-                            .filter((u) => u.active !== false && ![task.assigneeId, ...(task.assigneeIds || [])].includes(u.id))
+                            .filter(
+                              (u) =>
+                                u.active !== false &&
+                                ![task.assigneeId, ...(task.assigneeIds || [])].includes(u.id)
+                            )
                             .map((u) => (
                               <SelectItem key={u.id} value={u.id}>
                                 {u.name}
