@@ -25,6 +25,7 @@ import AdminPopupAlert from './AdminPopupAlert';
 import NewTaskPopup from './NewTaskPopup';
 import RyanAnnouncements from './RyanAnnouncements';
 import ReportProblemButton from './ReportProblemButton';
+import AutoVersionRefresh from './AutoVersionRefresh';
 import InventoryHeaderBanner from './InventoryHeaderBanner';
 import ForcePasswordChangeDialog from '@/components/ForcePasswordChangeDialog';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
@@ -43,6 +44,7 @@ const pageTitles: Record<string, string> = {
   '/admin': 'Meu Quadro',
   '/admin/monitor': 'Monitoria',
   '/gas': 'Gestão de Análise do Sistema',
+  '/backlog': 'Backlog',
   '/board': 'Meu Quadro',
   '/chat': 'Chat',
   '/corporate': 'Corporativo',
@@ -68,7 +70,7 @@ function getPageTitle(pathname: string) {
 }
 
 const AppLayout = () => {
-  const { currentUser, authLoading, logout, notifications } = useApp();
+  const { currentUser, authenticatedUser, authLoading, logout, notifications } = useApp();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,11 +116,11 @@ const AppLayout = () => {
 
   usePushNotifications();
 
-  const { totalUnread: unreadMessages } = useUnreadMessages(currentUser?.id || null);
+  const { totalUnread: unreadMessages } = useUnreadMessages(authenticatedUser?.id || null);
 
   const unreadNotifs = currentUser
     ? notifications.filter(
-        (notification) => notification.userId === currentUser.id && !notification.read
+        (notification) => notification.userId === authenticatedUser?.id && !notification.read
       ).length
     : 0;
 
@@ -208,10 +210,7 @@ const AppLayout = () => {
       <BulletinAlertPopup />
       <AdminPopupAlert />
       <NewTaskPopup />
-      <div className="fixed bottom-4 right-4 z-40 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-xl border bg-background/95 p-2 shadow-lg">
-        <RyanAnnouncements />
-        <ReportProblemButton />
-      </div>
+      <AutoVersionRefresh />
       <ForcePasswordChangeDialog />
 
       <div className="flex min-h-[100dvh] overflow-hidden bg-background">
@@ -260,6 +259,10 @@ const AppLayout = () => {
               </div>
             </div>
 
+            <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 sm:gap-2">
+              <RyanAnnouncements />
+              <ReportProblemButton />
+            </div>
             <div className="mx-auto hidden min-w-0 flex-1 justify-center px-4 lg:flex">
               <div className="max-w-xl overflow-hidden">
                 <InventoryHeaderBanner />

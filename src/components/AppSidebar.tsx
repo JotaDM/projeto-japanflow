@@ -7,6 +7,7 @@ import {
   Bell,
   X,
   Activity,
+  ClipboardList,
   ChevronRight,
   LayoutGrid,
   LogOut,
@@ -107,7 +108,7 @@ const AppSidebar = ({
   const location = useLocation();
   const presenceUserId = authenticatedUser?.id || currentUser?.id || null;
   useSelfPresenceHeartbeat(presenceUserId);
-  const { totalUnread } = useUnreadMessages(currentUser?.id || null);
+  const { totalUnread } = useUnreadMessages(authenticatedUser?.id || null);
   const { getStatus } = useAllPresences();
   const { isTabEnabled } = useTabPermissions();
   const { hasFeature } = useFeaturePermissions();
@@ -469,6 +470,25 @@ const AppSidebar = ({
               >
                 <Activity className="h-5 w-5 shrink-0" />
                 {!collapsed && <span>GAS</span>}
+              </button>
+            )}
+            {(isTiDashboardUser ||
+              authenticatedUser?.username?.trim().toLowerCase() === 'ryan') && (
+              <button
+                type="button"
+                onClick={() => handleNav('/backlog')}
+                title="Backlog · relatos da equipe"
+                aria-current={location.pathname === '/backlog' ? 'page' : undefined}
+                className={cn(
+                  'jf-interactive mb-2 flex h-10 w-full items-center rounded-xl text-sm font-semibold',
+                  collapsed ? 'justify-center' : 'gap-3 px-3',
+                  location.pathname === '/backlog'
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                )}
+              >
+                <ClipboardList className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>Backlog</span>}
               </button>
             )}
             {primaryItems.map(renderNavItem)}
