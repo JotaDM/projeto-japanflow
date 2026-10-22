@@ -208,7 +208,7 @@ const ConversationRow = ({
 };
 
 const ChatPage = () => {
-  const { currentUser, users } = useApp();
+  const { authenticatedUser: currentUser, users } = useApp();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [tab, setTab] = useState<'conversations' | 'contacts'>('conversations');
   const [archiveOpen, setArchiveOpen] = useState(false);

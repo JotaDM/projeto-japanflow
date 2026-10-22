@@ -27,6 +27,7 @@ const SharedDocsPage = lazy(() => import('@/pages/SharedDocsPage'));
 const InternalPoliciesPage = lazy(() => import('@/pages/InternalPoliciesPage'));
 const ChatHistoryPage = lazy(() => import('@/pages/ChatHistoryPage'));
 const GASPage = lazy(() => import('@/pages/GASPage'));
+const BacklogPage = lazy(() => import('@/pages/BacklogPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const queryClient = new QueryClient();
 const CarregandoPagina = () => (
@@ -66,6 +67,7 @@ const App = () => (
                 <Route path="/politicas-internas" element={<InternalPoliciesPage />} />
                 <Route path="/historico-conversas" element={<ChatHistoryPage />} />
                 <Route path="/gas" element={<GASPage />} />
+                <Route path="/backlog" element={<BacklogPage />} />
               </Route>
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<NotFound />} />

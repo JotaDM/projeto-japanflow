@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 type Announcement = { id: string; title: string; body: string; created_by: string };
 
 export default function RyanAnnouncements() {
-  const { currentUser } = useApp();
+  const { authenticatedUser } = useApp();
   const [items, setItems] = useState<Announcement[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
@@ -29,8 +29,8 @@ export default function RyanAnnouncements() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
-  const isRyan = currentUser?.username?.trim().toLowerCase() === 'ryan';
-  const uid = currentUser?.id;
+  const isRyan = authenticatedUser?.username?.trim().toLowerCase() === 'ryan';
+  const uid = authenticatedUser?.id;
 
   useEffect(() => {
     if (!uid) return;

@@ -42,6 +42,12 @@ service cloud.firestore {
       return ownLink().user_id;
     }
 
+    function canManageBacklog() {
+      return isActive() && exists(currentUserPath())
+        && get(currentUserPath()).data.active != false
+        && get(currentUserPath()).data.username in ['ryan', 'japan-ti'];
+    }
+
     match /auth_links/{uid} {
       allow read: if isActive()
         && (request.auth.uid == uid || isAdmin());
@@ -316,8 +322,12 @@ service cloud.firestore {
         && request.resource.data.description is string
         && request.resource.data.description.size() >= 10
         && request.resource.data.description.size() <= 2500;
-      allow read: if isAdmin() || (isActive() && resource.data.user_id == currentUserId());
-      allow update, delete: if isAdmin();
+      allow read: if canManageBacklog() || (isActive() && resource.data.user_id == currentUserId());
+      allow update: if canManageBacklog()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updated_at','updated_by'])
+        && request.resource.data.status in ['new','in_progress','resolved']
+        && request.resource.data.updated_by == currentUserId();
+      allow delete: if false;
     }
 
     // Colecoes operacionais nao cobertas pelas regras especificas.
