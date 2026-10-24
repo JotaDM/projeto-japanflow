@@ -17,13 +17,17 @@ const PRIORITY_STYLES = {
 };
 
 const SectorTasksList = ({ userId }: SectorTasksListProps) => {
-  const { users, tasks, claimSectorTask } = useApp();
+  const { users, operationalTasks, claimSectorTask } = useApp();
   const user = users.find((item) => item.id === userId);
 
   if (!user || !user.sectors || user.sectors.length === 0) return null;
 
-  const sectorTasks = tasks.filter(
-    (task) => task.sector && user.sectors.includes(task.sector as Sector) && !task.assigneeId
+  const sectorTasks = operationalTasks.filter(
+    (task) =>
+      task.sector &&
+      user.sectors.includes(task.sector as Sector) &&
+      !task.assigneeId &&
+      !(task as typeof task & { archivedAt?: string }).archivedAt
   );
 
   if (sectorTasks.length === 0) return null;

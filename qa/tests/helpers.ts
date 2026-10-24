@@ -76,7 +76,7 @@ export async function assertNoRuntimeIssues(issues: Issue[], testInfo: TestInfo)
   expect(issues, report).toEqual([]);
 }
 
-export async function login(page: Page) {
+export async function login(page: Page, options: { forceCredentials?: boolean } = {}) {
   const user = process.env.QA_ADMIN_USER;
   const password = process.env.QA_ADMIN_PASSWORD;
 
@@ -113,7 +113,21 @@ export async function login(page: Page) {
     });
   });
 
-  await page.goto('/login');
+  // Os testes comuns reutilizam o estado de autenticação criado no setup.
+  // Os testes que verificam login/logout devem forçar o fluxo real.
+  if (!options.forceCredentials) {
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Verificando sessão/i)).toHaveCount(0, { timeout: 15000 });
+    if (!new URL(page.url()).pathname.includes('/login')) {
+      await expect(page.locator('#main-content')).toBeAttached({ timeout: 15000 });
+      return;
+    }
+    throw new Error(
+      'Sessão QA compartilhada ausente ou inválida. Execute o projeto setup (dependência automática do Playwright).'
+    );
+  }
+
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
 
   const userInput = page
     .getByPlaceholder(/Seu usuário/i)
@@ -133,11 +147,29 @@ export async function login(page: Page) {
     .first()
     .click();
 
-  await page.waitForURL((url) => !url.pathname.includes('/login'), {
-    timeout: 20000,
-  });
-
-  await page.waitForTimeout(5700);
+  // SPA pode mudar a URL sem disparar evento de carregamento completo.
+  // Espera pela rota e pelo conteúdo autenticado, sem `waitUntil: 'load'`.
+  try {
+    await expect
+      .poll(() => new URL(page.url()).pathname, {
+        timeout: 25000,
+        message: 'Login QA não saiu da rota /login',
+      })
+      .not.toBe('/login');
+    await expect(page.getByText(/Verificando sessão/i)).toHaveCount(0, { timeout: 15000 });
+    await expect(page.locator('#main-content')).toBeAttached({ timeout: 15000 });
+  } catch (error) {
+    const location = page.url();
+    const screenText = (
+      await page
+        .locator('body')
+        .innerText()
+        .catch(() => '')
+    ).slice(0, 900);
+    throw new Error(
+      `Falha no login do QA. URL: ${location}. Tela: ${screenText}. Causa: ${String(error)}`
+    );
+  }
 }
 
 export async function assertNoHorizontalOverflow(page: Page) {
@@ -146,4 +178,20 @@ export async function assertNoHorizontalOverflow(page: Page) {
   );
 
   expect(overflow, 'A página possui overflow horizontal').toBeFalsy();
+}
+
+/**
+ * Navegação SPA após login: preserva Firebase Auth já inicializado.
+ * page.goto() força reload de toda a aplicação e reabre a corrida de
+ * restauração de sessão em cada caso de teste. Testes de refresh usam
+ * intencionalmente page.reload()/goto próprios.
+ */
+export async function navigateAuthenticated(page: Page, route: string) {
+  await page.evaluate((path) => {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, route);
+  await expect(page).toHaveURL(route);
+  await expect(page.getByText(/Verificando sessão/i)).toHaveCount(0);
+  await expect(page.locator('#main-content')).toBeAttached();
 }

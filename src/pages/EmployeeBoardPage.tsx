@@ -156,7 +156,7 @@ const EmployeeBoardPage = () => {
       </section>
 
       <section className="min-w-0">
-        <KanbanBoard tasks={tasks} />
+        <KanbanBoard tasks={tasks} boardUserId={viewUserId} boardAuthUid={viewUser?.authUid} />
       </section>
 
       <section className="min-w-0">

@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { assertNoHorizontalOverflow, assertNoRuntimeIssues, login, watchRuntime } from './helpers';
+import {
+  assertNoHorizontalOverflow,
+  assertNoRuntimeIssues,
+  login,
+  navigateAuthenticated,
+  watchRuntime,
+} from './helpers';
 
 const routes = [
   ['/admin', /Meu Quadro/i],
@@ -29,7 +35,7 @@ test.describe('JapanFlow — Smoke QA', () => {
   for (const [route, title] of routes) {
     test(`${route} abre sem erro`, async ({ page }, testInfo) => {
       const issues = watchRuntime(page);
-      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      await navigateAuthenticated(page, route);
       await expect(page.getByText(title).first()).toBeVisible();
       await assertNoHorizontalOverflow(page);
       await assertNoRuntimeIssues(issues, testInfo);

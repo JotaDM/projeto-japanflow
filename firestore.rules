@@ -110,8 +110,17 @@ service cloud.firestore {
 
     // Histórico agregado do monitor: somente leitura por administradores/TI.
     // Gravações são exclusivas do backend com credenciais de serviço.
+    function canReadGas() {
+      return isActive() && exists(currentUserPath())
+        && get(currentUserPath()).data.active != false
+        && (
+          get(currentUserPath()).data.username in ['ryan', 'joe_', 'japan-ti']
+          || isTiMaster()
+        );
+    }
+
     match /system_usage_daily/{day} {
-      allow read: if isAdmin();
+      allow read: if canReadGas();
       allow create, update, delete: if false;
     }
 

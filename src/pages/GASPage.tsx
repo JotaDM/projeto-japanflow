@@ -20,6 +20,7 @@ import {
 } from 'recharts';
 import { useApp } from '@/contexts/AppContext';
 import { useCostGuard } from '@/hooks/useCostGuard';
+import { useCompletedTaskHistory } from '@/hooks/useCompletedTaskHistory';
 import { quotaColor } from '@/components/QuotaProgress';
 import { cn } from '@/lib/utils';
 
@@ -58,10 +59,70 @@ function MetricCard({ name, value }: { name: string; value: number }) {
     </section>
   );
 }
+
+function CompletedHistoryDiagnostic() {
+  const [enabled, setEnabled] = useState(false);
+  const { items, loading, error, hasMore, loadMore } = useCompletedTaskHistory(enabled);
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+      <h2 className="text-base font-semibold">Diagnóstico: histórico de tarefas concluídas</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Consulta paginada de 25 documentos por vez, apenas ao solicitar. Esta prévia não altera os
+        quadros nem substitui o listener operacional.
+      </p>
+      {!enabled ? (
+        <button
+          className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted"
+          onClick={() => setEnabled(true)}
+        >
+          Habilitar consulta sob demanda
+        </button>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {items.length} registros carregados nesta sessão
+          </p>
+          {items.map((item) => (
+            <div key={item.id} className="rounded-lg border p-2 text-sm">
+              <span className="font-medium">{item.title || '(Sem título)'}</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {item.createdAt?.toLocaleDateString('pt-BR') || 'Sem data'}
+              </span>
+            </div>
+          ))}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          {hasMore && (
+            <button
+              disabled={loading}
+              className="rounded-xl border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              onClick={() => void loadMore()}
+            >
+              {loading
+                ? 'Carregando...'
+                : items.length
+                  ? 'Carregar mais 25'
+                  : 'Carregar primeiros 25'}
+            </button>
+          )}
+          {!hasMore && (
+            <p className="text-xs text-muted-foreground">Fim dos registros disponíveis.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function GASPage() {
   const { authenticatedUser, isActingAsTi } = useApp();
   const isTi = Boolean(
-    authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    ['japan-ti', 'ryan', 'joe_'].includes(
+      authenticatedUser?.username?.trim().toLowerCase() || ''
+    ) ||
     (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
     isActingAsTi
   );
@@ -319,6 +380,7 @@ export default function GASPage() {
           </div>
         )}
       </section>
+      <CompletedHistoryDiagnostic />
       <p className="text-xs text-muted-foreground">
         Dados de Hosting e Storage exigem integração separada com o Cloud Monitoring. Os gráficos de
         evolução acima usam apenas amostras reais do Firestore.

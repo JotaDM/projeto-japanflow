@@ -51,15 +51,24 @@ export default defineConfig({
     : {
         command: 'npm run dev -- --mode qa --host 127.0.0.1 --port 8080',
         url: baseURL,
+        // O operador confirmou Vite iniciado em --mode qa. Não use em servidor de produção.
         reuseExistingServer: true,
         timeout: 120_000,
       },
 
   projects: [
     {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'desktop-chromium',
+      testIgnore: /auth\.setup\.ts/,
+      dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
+        storageState: 'qa/.auth/admin.json',
         viewport: {
           width: 1440,
           height: 900,
@@ -69,8 +78,11 @@ export default defineConfig({
 
     {
       name: 'mobile-chromium',
+      testIgnore: /auth\.setup\.ts/,
+      dependencies: ['setup'],
       use: {
         ...devices['Pixel 7'],
+        storageState: 'qa/.auth/admin.json',
       },
     },
   ],

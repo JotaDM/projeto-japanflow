@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TaskDetailDialog from '@/components/TaskDetailDialog';
+import { useCreatedTasks } from '@/hooks/useCreatedTasks';
 
 interface MotoboyAssignment {
   id: string;
@@ -63,7 +64,8 @@ const RIDE_STATUS_LABELS: Record<string, string> = {
 };
 
 const TaskTrackingPage = () => {
-  const { currentUser, tasks, users } = useApp();
+  const { currentUser, users } = useApp();
+  const { tasks: createdTasks, loading: tasksLoading, error: tasksError } = useCreatedTasks(currentUser?.id);
   const [search, setSearch] = useState('');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [rides, setRides] = useState<MotoboyAssignment[]>([]);
@@ -116,18 +118,12 @@ const TaskTrackingPage = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Tasks created by current user for others
-  const createdTasks = useMemo(() => {
-    if (!currentUser) return [];
-    return tasks.filter((t) => t.createdBy === currentUser.id && t.assigneeId !== currentUser.id);
-  }, [tasks, currentUser]);
-
   // Find related sub-tasks for a given task (by title matching)
   const getRelatedItems = (task: Task) => {
     const related: { type: 'task' | 'ride'; item: Task | MotoboyAssignment }[] = [];
 
     // Find etiqueta tasks created for this task
-    const etiquetaTasks = tasks.filter(
+    const etiquetaTasks = createdTasks.filter(
       (t) =>
         t.id !== task.id &&
         t.createdBy === currentUser?.id &&
@@ -152,7 +148,9 @@ const TaskTrackingPage = () => {
   // Filter and search
   const filteredTasks = useMemo(() => {
     let result = createdTasks;
-    if (filter === 'active') result = result.filter((t) => t.status !== 'done');
+    if (filter === 'active') {
+      result = result.filter((task) => task.status !== 'done');
+    }
     if (filter === 'done') result = result.filter((t) => t.status === 'done');
     if (search) {
       const s = search.toLowerCase();
@@ -215,6 +213,8 @@ const TaskTrackingPage = () => {
         </p>
       </section>
 
+      {tasksError && <p role="alert" className="text-sm text-destructive">Falha ao carregar tarefas: {tasksError}</p>}
+      {tasksLoading && <p role="status" className="text-sm text-muted-foreground">Carregando tarefas de acompanhamento...</p>}
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Card className="rounded-2xl border-border/70 shadow-card">

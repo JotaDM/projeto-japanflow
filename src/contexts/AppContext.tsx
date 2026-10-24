@@ -39,6 +39,8 @@ interface AppContextType {
   usersLoading: boolean;
   usersError: string | null;
   tasks: Task[];
+  operationalTasks: Task[];
+  completedTasks: Task[];
   messages: ChatMessage[];
   notifications: Notification[];
   calendarEvents: CalendarEvent[];
@@ -238,6 +240,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })),
     [firebaseTasks.tasks]
   );
+  // Seletores derivados: conservam o contrato legado 'tasks' e preparam
+  // os consumidores para uma migração sem perda de histórico.
+  const operationalTasks = useMemo(() => tasks.filter((task) => task.status !== 'done'), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'done'), [tasks]);
   const firebaseCalendar = useFirebaseCalendar(dataEnabled && !isProtectedMode);
   const calendarEvents = firebaseCalendar.events;
   const firebaseNotifications = useFirebaseNotifications(dataEnabled, authenticatedUser?.id);
@@ -496,6 +502,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         usersLoading: firebaseUsers.loading,
         usersError: firebaseUsers.error,
         tasks,
+        operationalTasks,
+        completedTasks,
         messages,
         notifications,
         calendarEvents,

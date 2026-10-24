@@ -8,6 +8,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  where,
 } from 'firebase/firestore';
 import { Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,7 +38,7 @@ export default function RyanAnnouncements() {
     setLoaded(false);
     setSeen(new Set());
     const unsub = onSnapshot(
-      collection(db, 'ryan_announcement_acks'),
+      query(collection(db, 'ryan_announcement_acks'), where('user_id', '==', uid)),
       (snap) => {
         setSeen(
           new Set(

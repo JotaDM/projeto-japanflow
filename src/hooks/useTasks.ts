@@ -109,6 +109,7 @@ export const useTasks = (
       const statusHistory: StatusHistoryEntry[] = [{ status: task.status, enteredAt: nowIso }];
 
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: task.title,
         description: task.description,
         status: task.status,

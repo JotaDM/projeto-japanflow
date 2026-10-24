@@ -21,22 +21,24 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { History, Search, Clock, CheckCircle2, User, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ReactivateTaskDialog from './ReactivateTaskDialog';
+import { useCompletedTaskHistory } from '@/hooks/useCompletedTaskHistory';
 
 interface TaskHistoryDialogProps {
   userId?: string;
 }
 
 const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
-  const { tasks, users } = useApp();
+  const { users } = useApp();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('all');
   const [reactivateTask, setReactivateTask] = useState<Task | null>(null);
+  const history = useCompletedTaskHistory(open);
 
   const completedTasks = useMemo(() => {
-    let filtered = tasks.filter((t) => {
+    let filtered = history.items.map((row) => row.task).filter((t) => {
       if (t.status !== 'done') return false;
-      if (userId && t.assigneeId !== userId) return false;
+      if (userId && t.assigneeId !== userId && !t.assigneeIds?.includes(userId)) return false;
       return true;
     });
 
@@ -74,7 +76,7 @@ const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
       const bTime = bDone ? new Date(bDone.enteredAt).getTime() : 0;
       return bTime - aTime;
     });
-  }, [tasks, userId, filterPeriod, search]);
+  }, [history.items, userId, filterPeriod, search]);
 
   const formatDateTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -140,7 +142,7 @@ const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
           {completedTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <CheckCircle2 className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm">Nenhuma tarefa concluída encontrada</p>
+              <p className="text-sm">{history.loading ? 'Carregando histórico...' : 'Nenhuma tarefa concluída encontrada nas páginas carregadas'}</p>
             </div>
           ) : (
             <div className="space-y-2 pr-3">
@@ -208,6 +210,27 @@ const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
             </div>
           )}
         </ScrollArea>
+        {history.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {history.error}
+          </p>
+        )}
+        {history.hasMore && (
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={history.loading}
+            onClick={() => void history.loadMore()}
+          >
+            {history.loading ? 'Carregando…' : 'Carregar mais 25 tarefas concluídas'}
+          </Button>
+        )}
+        {(
+          <p className="text-xs text-muted-foreground">
+            Busca e quantidade referem-se às páginas carregadas. Carregue mais para consultar
+            registros antigos.
+          </p>
+        )}
       </DialogContent>
       {reactivateTask && (
         <ReactivateTaskDialog

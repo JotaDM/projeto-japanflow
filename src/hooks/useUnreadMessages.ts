@@ -1,75 +1,47 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-interface MessageData {
-  senderId: string;
-  receiverId: string;
-  read?: boolean;
-  deleted?: boolean;
-}
+type Listener = () => void;
+type Entry = { value: number; listeners: Set<Listener>; stop: () => void };
+const stores = new Map<string, Entry>();
 
-// Este hook gerencia apenas o contador dentro do JapanFlow.
-// Não dispara sons nem notificações do navegador.
-export function useUnreadMessages(currentUserIdOrUsername: string | null) {
-  const [totalUnread, setTotalUnread] = useState(0);
-  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!currentUserIdOrUsername) {
-      setResolvedUserId(null);
-      return;
-    }
-
-    // Compatibilidade com chamadas antigas que passam username.
-    const unsubscribe = onSnapshot(
-      collection(db, 'users'),
+function subscribe(userId: string, notify: Listener): () => void {
+  let entry = stores.get(userId);
+  if (!entry) {
+    entry = { value: 0, listeners: new Set(), stop: () => undefined };
+    stores.set(userId, entry);
+    const active = entry;
+    active.stop = onSnapshot(
+      query(collection(db, 'messages'), where('receiverId', '==', userId), limit(100)),
       (snapshot) => {
-        const direct = snapshot.docs.find((userDoc) => userDoc.id === currentUserIdOrUsername);
-        if (direct) {
-          setResolvedUserId(direct.id);
-          return;
-        }
-        const byUsername = snapshot.docs.find(
-          (userDoc) => String(userDoc.data().username || '').trim() === currentUserIdOrUsername
-        );
-        setResolvedUserId(byUsername?.id || currentUserIdOrUsername);
-      },
-      (error) => {
-        console.warn('Falha ao resolver usuário do contador de chat:', error);
-        setResolvedUserId(currentUserIdOrUsername);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [currentUserIdOrUsername]);
-
-  useEffect(() => {
-    if (!resolvedUserId) {
-      setTotalUnread(0);
-      return;
-    }
-
-    const messagesQuery = query(
-      collection(db, 'messages'),
-      where('receiverId', '==', resolvedUserId),
-      limit(100)
-    );
-
-    const unsubscribe = onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        const unreadCount = snapshot.docs.reduce((count, messageDoc) => {
-          const message = messageDoc.data() as MessageData;
-          return count + (message.read !== true && message.deleted !== true ? 1 : 0);
+        active.value = snapshot.docs.reduce((count, message) => {
+          const data = message.data();
+          return count + (data.read !== true && data.deleted !== true ? 1 : 0);
         }, 0);
-        setTotalUnread(unreadCount);
+        active.listeners.forEach((listener) => listener());
       },
       (error) => console.error('Erro ao acompanhar mensagens não lidas:', error)
     );
+  }
+  entry.listeners.add(notify);
+  return () => {
+    entry!.listeners.delete(notify);
+    if (entry!.listeners.size === 0) {
+      entry!.stop();
+      stores.delete(userId);
+    }
+  };
+}
 
-    return () => unsubscribe();
-  }, [resolvedUserId]);
-
+// Os consumidores passam o ID autenticado, não o username.
+// Duas instâncias do hook compartilham uma única assinatura por ID.
+export function useUnreadMessages(userId: string | null) {
+  const listen = useCallback(
+    (notify: Listener) => (userId ? subscribe(userId, notify) : () => undefined),
+    [userId]
+  );
+  const snapshot = useCallback(() => (userId ? (stores.get(userId)?.value ?? 0) : 0), [userId]);
+  const totalUnread = useSyncExternalStore(listen, snapshot, () => 0);
   return { totalUnread };
 }

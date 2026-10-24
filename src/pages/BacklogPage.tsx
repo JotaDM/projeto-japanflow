@@ -7,12 +7,21 @@ import {
   query,
   Timestamp,
   updateDoc,
+  limit,
 } from 'firebase/firestore';
 import { useApp } from '@/contexts/AppContext';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+
+type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  created_by: string;
+  created_at?: Timestamp;
+};
 
 type Report = {
   id: string;
@@ -30,12 +39,14 @@ export default function BacklogPage() {
     user?.username?.trim().toLowerCase() === 'ryan' ||
     user?.username?.trim().toLowerCase() === 'japan-ti';
   const [reports, setReports] = useState<Report[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authorized) return;
     const unsubscribe = onSnapshot(
-      query(collection(db, 'user_problem_reports'), orderBy('created_at', 'desc')),
+      query(collection(db, 'user_problem_reports'), orderBy('created_at', 'desc'), limit(100)),
       (snapshot) => {
         setReports(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Report));
         setLoading(false);
@@ -47,6 +58,24 @@ export default function BacklogPage() {
       }
     );
     return unsubscribe;
+  }, [authorized]);
+
+  useEffect(() => {
+    if (!authorized) return;
+    return onSnapshot(
+      query(collection(db, 'ryan_announcements'), orderBy('created_at', 'desc'), limit(100)),
+      (snapshot) => {
+        setAnnouncements(
+          snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Announcement)
+        );
+        setAnnouncementsLoading(false);
+      },
+      (error) => {
+        console.error('Histórico de avisos:', error);
+        toast.error('Não foi possível carregar o histórico de avisos');
+        setAnnouncementsLoading(false);
+      }
+    );
   }, [authorized]);
 
   if (!authorized)
@@ -79,6 +108,36 @@ export default function BacklogPage() {
       {!loading && reports.length === 0 && (
         <p className="text-sm text-muted-foreground">Nenhum problema reportado.</p>
       )}
+      <div className="rounded-xl border border-border/70 p-4 space-y-3">
+        <h2 className="text-lg font-semibold">Histórico de avisos do Ryan</h2>
+        <p className="text-xs text-muted-foreground">
+          Últimos 100 comunicados publicados, do mais recente ao mais antigo. Registro preservado no
+          Firestore.
+        </p>
+        {announcementsLoading && (
+          <p className="text-sm text-muted-foreground">Carregando avisos...</p>
+        )}
+        {!announcementsLoading && announcements.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhum aviso publicado.</p>
+        )}
+        <div className="grid gap-3">
+          {announcements.map((notice) => (
+            <Card key={notice.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">{notice.title}</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {notice.created_at?.toDate?.().toLocaleString('pt-BR') || 'Sem data'} ·{' '}
+                  {users.find((u) => u.id === notice.created_by)?.name || 'Ryan'}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap break-words text-sm">{notice.body}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+      <h2 className="text-lg font-semibold">Relatos da equipe</h2>
       <div className="grid gap-3">
         {reports.map((report) => (
           <Card key={report.id}>

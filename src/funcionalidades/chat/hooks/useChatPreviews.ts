@@ -25,7 +25,10 @@ const toIso = (value: any): string => {
   return '';
 };
 
-export function useChatPreviews(currentUsername: string | null) {
+export function useChatPreviews(
+  currentUsername: string | null,
+  directory?: Array<{ id: string; username: string }>
+) {
   const [previews, setPreviews] = useState<ChatPreview[]>([]);
   const [usersMap, setUsersMap] = useState({
     idToUsername: new Map<string, string>(),
@@ -34,6 +37,18 @@ export function useChatPreviews(currentUsername: string | null) {
   const [messagesSnapshot, setMessagesSnapshot] = useState<any[]>([]);
 
   useEffect(() => {
+    if (directory) {
+      const idToUsername = new Map<string, string>();
+      const usernameToId = new Map<string, string>();
+      directory.forEach((user) => {
+        const name = user.username?.trim();
+        if (!name) return;
+        idToUsername.set(user.id, name);
+        usernameToId.set(name, user.id);
+      });
+      setUsersMap({ idToUsername, usernameToId });
+      return;
+    }
     const unsubscribe = onSnapshot(
       collection(db, 'users'),
       (snapshot) => {
@@ -54,7 +69,7 @@ export function useChatPreviews(currentUsername: string | null) {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [directory]);
 
   useEffect(() => {
     const userId = currentUsername ? usersMap.usernameToId.get(currentUsername) : null;

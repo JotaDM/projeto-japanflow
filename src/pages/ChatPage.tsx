@@ -218,7 +218,7 @@ const ChatPage = () => {
     user: User;
   } | null>(null);
 
-  const { previews, markAsRead } = useChatPreviews(currentUser?.username || null);
+  const { previews, markAsRead } = useChatPreviews(currentUser?.username || null, users);
   const privateTypingUserIds = usePrivateTypingUsers(currentUser?.id);
   const { getPreference, updatePreference } = useChatPreferences(currentUser?.id);
 

@@ -104,7 +104,7 @@ const AdminPage = () => {
       </section>
 
       <section className="min-w-0 overflow-hidden">
-        <KanbanBoard tasks={tasks} />
+        <KanbanBoard tasks={tasks} boardUserId={currentUser.id} boardAuthUid={currentUser.authUid} />
       </section>
 
       <section className="min-w-0">

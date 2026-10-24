@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { assertNoHorizontalOverflow, assertNoRuntimeIssues, login, watchRuntime } from './helpers';
+import {
+  assertNoHorizontalOverflow,
+  assertNoRuntimeIssues,
+  login,
+  navigateAuthenticated,
+  watchRuntime,
+} from './helpers';
 
 async function gotoAndWatch(page: any, route: string) {
   const issues = watchRuntime(page);
-  await page.goto(route, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('body')).toBeVisible();
+  await navigateAuthenticated(page, route);
   return issues;
 }
 

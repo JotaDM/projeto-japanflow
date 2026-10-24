@@ -95,7 +95,7 @@ const normalizeHistory = (value: unknown, fallbackStatus: TaskStatus): StatusHis
     .filter((entry): entry is StatusHistoryEntry => entry !== null);
 };
 
-const mapTask = (id: string, data: FirestoreTaskData): TaskWithArchive => {
+export const mapTask = (id: string, data: FirestoreTaskData): TaskWithArchive => {
   const status = String(data.status || 'todo') as TaskStatus;
   const createdAt = toIso(data.created_at ?? data.createdAt);
   const updatedAt = toIso(data.updated_at ?? data.updatedAt) || createdAt;
@@ -149,32 +149,68 @@ export function useFirebaseTasks(
     }
 
     setLoading(true);
+    // Modo de compatibilidade: preserva TODAS as tarefas para os consumidores
+    // que ainda dependem de histórico completo (quadros, relatórios e contadores).
+    // Experimento local deve usar VITE_TASKS_FILTERED_PILOT=true no .env.local;
+    // NUNCA habilitar em produção sem adaptar os consumidores e os indicadores.
+    const pilot = import.meta.env.VITE_TASKS_BOARD_QUERY_V2 === 'true';
+    const cache = new Map<string, TaskWithArchive>();
+    const sortTasks = (values: TaskWithArchive[]) =>
+      values.sort(
+        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      );
 
-    // Não usa orderBy aqui de propósito: o banco possui registros legados em camelCase
-    // (createdAt/assigneeId) e registros novos/Worker em snake_case
-    // (created_at/assignee_id). O Firestore omite documentos sem o campo usado no orderBy.
-    // Lemos a coleção completa, normalizamos os dois formatos e ordenamos no cliente.
+    if (!pilot) {
+      const unsubscribe = onSnapshot(
+        collection(db, 'tasks'),
+        (snapshot) => {
+          for (const change of snapshot.docChanges()) {
+            if (change.type === 'removed') cache.delete(change.doc.id);
+            else
+              cache.set(
+                change.doc.id,
+                mapTask(change.doc.id, change.doc.data() as FirestoreTaskData)
+              );
+          }
+          setTasks(sortTasks([...cache.values()]));
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Erro ao buscar tarefas:', error);
+          setLoading(false);
+        }
+      );
+      return () => {
+        unsubscribe();
+        cache.clear();
+      };
+    }
+
+    // Consulta v2: somente tarefas presentes no quadro (inclusive concluídas não arquivadas).
+    // Exige backfill de board_visible ANTES da ativação.
     const unsubscribe = onSnapshot(
-      collection(db, 'tasks'),
+      query(collection(db, 'tasks'), where('board_visible', '==', true)),
       (snapshot) => {
-        const nextTasks = snapshot.docs
-          .map((taskDoc) => mapTask(taskDoc.id, taskDoc.data() as FirestoreTaskData))
-          .sort((a, b) => {
-            const aTime = new Date(a.createdAt || 0).getTime();
-            const bTime = new Date(b.createdAt || 0).getTime();
-            return bTime - aTime;
-          });
-
-        setTasks(nextTasks);
+        for (const change of snapshot.docChanges()) {
+          if (change.type === 'removed') cache.delete(change.doc.id);
+          else
+            cache.set(
+              change.doc.id,
+              mapTask(change.doc.id, change.doc.data() as FirestoreTaskData)
+            );
+        }
+        setTasks(sortTasks([...cache.values()]));
         setLoading(false);
       },
       (error) => {
-        console.error('Erro ao buscar tarefas:', error);
+        console.error('Erro no piloto de tarefas filtradas:', error);
         setLoading(false);
       }
     );
-
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      cache.clear();
+    };
   }, [enabled]);
 
   const addTask = useCallback(
@@ -199,6 +235,8 @@ export function useFirebaseTasks(
           response: task.response || null,
           created_at: now,
           updated_at: now,
+          completed_at: task.status === 'done' ? now : null,
+          board_visible: true,
         })
         .commit();
       return taskRef.id;
@@ -257,6 +295,8 @@ export function useFirebaseTasks(
     await updateDoc(taskRef, {
       status,
       status_history: history,
+      completed_at: status === 'done' ? now : null,
+      board_visible: true,
       updated_at: now,
     });
 

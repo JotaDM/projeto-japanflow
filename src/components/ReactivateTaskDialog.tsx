@@ -15,7 +15,7 @@ import {
 import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
-import { addDoc, collection, doc, Timestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteField, doc, Timestamp, updateDoc } from 'firebase/firestore';
 
 interface Props {
   task: Task;
@@ -64,6 +64,12 @@ const ReactivateTaskDialog = ({ task, open, onOpenChange, onReactivated }: Props
         deadline,
         assignee_id: assigneeId,
         status: 'todo',
+        completed_at: null,
+        board_visible: true,
+        archived_at: deleteField(),
+        archived_by: deleteField(),
+        archivedAt: deleteField(),
+        archivedBy: deleteField(),
         status_history: history,
         updated_at: Timestamp.now(),
       });

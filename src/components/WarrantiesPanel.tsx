@@ -218,6 +218,7 @@ const WarrantiesPanel = () => {
       const deadline = new Date();
       deadline.setHours(23, 59, 59, 999);
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: `🛡️ Garantia: ${form.clientName.trim()} - ${form.itemName.trim()}`,
         description: `Novo pedido de garantia\nCliente: ${form.clientName.trim()}\nMarca: ${form.productBrand.trim()}\nItem: ${form.itemName.trim()}\nNF/Pedido: ${form.invoiceNumber.trim()}`,
         status: 'todo',
