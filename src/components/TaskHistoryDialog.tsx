@@ -36,11 +36,13 @@ const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
   const history = useCompletedTaskHistory(open);
 
   const completedTasks = useMemo(() => {
-    let filtered = history.items.map((row) => row.task).filter((t) => {
-      if (t.status !== 'done') return false;
-      if (userId && t.assigneeId !== userId && !t.assigneeIds?.includes(userId)) return false;
-      return true;
-    });
+    let filtered = history.items
+      .map((row) => row.task)
+      .filter((t) => {
+        if (t.status !== 'done') return false;
+        if (userId && t.assigneeId !== userId && !t.assigneeIds?.includes(userId)) return false;
+        return true;
+      });
 
     // Filter by period
     if (filterPeriod !== 'all') {
@@ -142,7 +144,11 @@ const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
           {completedTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <CheckCircle2 className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm">{history.loading ? 'Carregando histórico...' : 'Nenhuma tarefa concluída encontrada nas páginas carregadas'}</p>
+              <p className="text-sm">
+                {history.loading
+                  ? 'Carregando histórico...'
+                  : 'Nenhuma tarefa concluída encontrada nas páginas carregadas'}
+              </p>
             </div>
           ) : (
             <div className="space-y-2 pr-3">
@@ -225,12 +231,12 @@ const TaskHistoryDialog = ({ userId }: TaskHistoryDialogProps) => {
             {history.loading ? 'Carregando…' : 'Carregar mais 25 tarefas concluídas'}
           </Button>
         )}
-        {(
+        {
           <p className="text-xs text-muted-foreground">
             Busca e quantidade referem-se às páginas carregadas. Carregue mais para consultar
             registros antigos.
           </p>
-        )}
+        }
       </DialogContent>
       {reactivateTask && (
         <ReactivateTaskDialog

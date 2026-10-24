@@ -288,7 +288,7 @@ Iniciado por ${currentUser.name}.`,
 
     // Generate task for Moisés
     const taskRef = await addDoc(collection(db, 'tasks'), {
-        board_visible: true,
+      board_visible: true,
       title: `📋 Baixa de Inventário - Prateleira ${finalInv.shelf_code}`,
       description: `Realizar a baixa no sistema referente ao inventário da prateleira ${finalInv.shelf_code}.
 

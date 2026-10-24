@@ -239,7 +239,10 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   // Histórico paginado no diálogo; o Kanban operacional permanece intacto.
-  const archivedHistory = useArchivedTasksForBoard(archiveDialogOpen, [boardUserId, boardAuthUid].filter((value): value is string => Boolean(value)));
+  const archivedHistory = useArchivedTasksForBoard(
+    archiveDialogOpen,
+    [boardUserId, boardAuthUid].filter((value): value is string => Boolean(value))
+  );
 
   const normalizedTasks = useMemo(
     () =>
@@ -620,8 +623,8 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
               </Button>
             )}
             <p className="text-xs text-muted-foreground">
-              A consulta busca apenas tarefas arquivadas vinculadas a este funcionário.
-              Use Carregar mais para consultar registros antigos.
+              A consulta busca apenas tarefas arquivadas vinculadas a este funcionário. Use Carregar
+              mais para consultar registros antigos.
             </p>
           </div>
         </DialogContent>

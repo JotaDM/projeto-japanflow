@@ -65,7 +65,11 @@ const RIDE_STATUS_LABELS: Record<string, string> = {
 
 const TaskTrackingPage = () => {
   const { currentUser, users } = useApp();
-  const { tasks: createdTasks, loading: tasksLoading, error: tasksError } = useCreatedTasks(currentUser?.id);
+  const {
+    tasks: createdTasks,
+    loading: tasksLoading,
+    error: tasksError,
+  } = useCreatedTasks(currentUser?.id);
   const [search, setSearch] = useState('');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [rides, setRides] = useState<MotoboyAssignment[]>([]);
@@ -213,8 +217,16 @@ const TaskTrackingPage = () => {
         </p>
       </section>
 
-      {tasksError && <p role="alert" className="text-sm text-destructive">Falha ao carregar tarefas: {tasksError}</p>}
-      {tasksLoading && <p role="status" className="text-sm text-muted-foreground">Carregando tarefas de acompanhamento...</p>}
+      {tasksError && (
+        <p role="alert" className="text-sm text-destructive">
+          Falha ao carregar tarefas: {tasksError}
+        </p>
+      )}
+      {tasksLoading && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Carregando tarefas de acompanhamento...
+        </p>
+      )}
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Card className="rounded-2xl border-border/70 shadow-card">

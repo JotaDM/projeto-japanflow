@@ -12,14 +12,27 @@ export function useCreatedTasks(creatorId?: string) {
   useEffect(() => {
     setTasks([]);
     setError(null);
-    if (!creatorId) { setLoading(false); return; }
+    if (!creatorId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const q = query(collection(db, 'tasks'), where('created_by', '==', creatorId));
-    return onSnapshot(q, (snapshot) => {
-      setTasks(snapshot.docs.map((d) => mapTask(d.id, d.data()))
-        .filter((t) => t.assigneeId !== creatorId));
-      setLoading(false);
-    }, (cause) => { setError(cause.message); setLoading(false); });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        setTasks(
+          snapshot.docs
+            .map((d) => mapTask(d.id, d.data()))
+            .filter((t) => t.assigneeId !== creatorId)
+        );
+        setLoading(false);
+      },
+      (cause) => {
+        setError(cause.message);
+        setLoading(false);
+      }
+    );
   }, [creatorId]);
   return { tasks, loading, error };
 }

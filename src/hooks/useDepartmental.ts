@@ -810,7 +810,7 @@ export const useDepartmental = () => {
         deadline.setHours(23, 59, 59, 999);
 
         const taskRef = await addDoc(collection(db, 'tasks'), {
-        board_visible: true,
+          board_visible: true,
           title: taskTitle,
           description: taskDesc,
           status: 'todo',
