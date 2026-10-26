@@ -2,9 +2,7 @@
 
 # JapanFlow
 
-**Gestão operacional, comunicação e organização de equipes em um só lugar.**
-
-Um sistema web desenvolvido para centralizar tarefas, acompanhar atividades e facilitar a rotina de diferentes setores de uma empresa.
+Sistema web desenvolvido para centralizar tarefas, acompanhar atividades e facilitar a rotina de diferentes setores da Japan Imports.
 
 [**Acessar o JapanFlow**](https://japanflow.com.br)
 
