@@ -11,11 +11,21 @@
     "headers": [
       {
         "source": "/version.json",
-        "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
       },
       {
         "source": "/index.html",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, max-age=0, must-revalidate"
+          }
+        ]
       }
     ],
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
@@ -41,5 +51,8 @@
       "port": 4000
     },
     "singleProjectMode": true
+  },
+  "functions": {
+    "source": "functions"
   }
 }

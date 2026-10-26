@@ -6,6 +6,7 @@ import ChatPanel from '@/funcionalidades/chat/componentes/ChatPanel';
 import { User, Sector, SECTOR_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
 import { useChatPreviews } from '@/funcionalidades/chat/hooks/useChatPreviews';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -232,7 +233,7 @@ const ChatPage = () => {
     [previews]
   );
 
-  const privateUnreadTotal = previews.reduce((total, preview) => total + preview.unreadCount, 0);
+  const { totalUnread: privateUnreadTotal } = useUnreadMessages(currentUser?.id || null);
   const selectedPreview = selectedUser ? previewByUsername.get(selectedUser.username) : undefined;
 
   const conversationUsers = useMemo(() => {

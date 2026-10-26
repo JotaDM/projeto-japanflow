@@ -139,8 +139,7 @@ service cloud.firestore {
       }
 
       allow get: if participant(resource.data);
-      allow list: if participant(resource.data)
-        && request.query.limit <= 100;
+      allow list: if participant(resource.data);
       allow create: if isActive()
         && request.resource.data.senderId == currentUserId()
         && request.resource.data.receiverId is string
@@ -161,9 +160,24 @@ service cloud.firestore {
           )
           ||
           (
+            // Cada participante altera apenas sua reação; o conteúdo segue imutável.
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+            && request.resource.data.get('reactions', {}) is map
+            && resource.data.get('reactions', {}) is map
+            && request.resource.data.reactions.diff(resource.data.get('reactions', {}))
+              .affectedKeys().hasOnly([currentUserId()])
+            && (
+              !(currentUserId() in request.resource.data.reactions)
+              || request.resource.data.reactions[currentUserId()] in ['👍', '❤️', '😂', '😮', '🙏', '🔥']
+            )
+          )
+          ||
+          (
             resource.data.receiverId == currentUserId()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'read_at'])
+            && resource.data.get('read', false) == false
             && request.resource.data.read == true
+            && request.resource.data.read_at == request.time
           )
         );
       allow delete: if false;
@@ -203,8 +217,7 @@ service cloud.firestore {
 
     match /group_messages/{messageId} {
       allow get: if isGroupMember(resource.data.group_id);
-      allow list: if isGroupMember(resource.data.group_id)
-        && request.query.limit <= 100;
+      allow list: if isGroupMember(resource.data.group_id);
       allow create: if isActive()
         && request.resource.data.group_id is string
         && isGroupMember(request.resource.data.group_id)

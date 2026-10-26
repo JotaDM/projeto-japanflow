@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useGroupChat, GroupMessage } from '@/funcionalidades/chat/hooks/useGroupChat';
 import { useGroupTyping } from '@/funcionalidades/chat/hooks/useTypingPresence';
 import { uploadImage } from '@/lib/uploadImage';
+import { getSignedUrl } from '@/lib/signedUrl';
 import { SafeChatImage, TypingBubble } from '@/funcionalidades/chat/componentes/ChatMedia';
 
 interface GroupChatPanelProps {
@@ -15,9 +16,43 @@ interface GroupChatPanelProps {
   groupName: string;
 }
 
+const GroupAttachment = ({ src, name }: { src: string; name: string }) => {
+  const [href, setHref] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void getSignedUrl(src)
+      .then((url) => {
+        if (active) setHref(url);
+      })
+      .catch(() => {
+        if (active) setHref(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [src]);
+  return href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 break-all text-xs underline"
+    >
+      <FileText className="h-4 w-4 shrink-0" />
+      {name}
+    </a>
+  ) : (
+    <span className="text-xs">Carregando arquivo protegido...</span>
+  );
+};
+
 const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
   const { authenticatedUser: currentUser, users } = useApp();
-  const { messages, sendMessage } = useGroupChat(groupId);
+  const { messages, sendMessage, loadOlder, hasMore } = useGroupChat(groupId);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollRestoreRef = useRef<{ height: number; top: number } | null>(null);
+  const loadingOlderRef = useRef(false);
+  const nearBottomRef = useRef(true);
 
   const [text, setText] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -32,9 +67,20 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
     .map((id) => users.find((user) => user.id === id)?.name)
     .filter((name): name is string => Boolean(name));
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useLayoutEffect(() => {
+    const area = scrollAreaRef.current;
+    if (!area) return;
+    if (scrollRestoreRef.current) {
+      const prior = scrollRestoreRef.current;
+      area.scrollTop = prior.top + area.scrollHeight - prior.height;
+      scrollRestoreRef.current = null;
+    } else if (nearBottomRef.current) {
+      area.scrollTop = area.scrollHeight;
+    }
   }, [messages.length, typingUserIds.length]);
+  useEffect(() => {
+    nearBottomRef.current = true;
+  }, [groupId]);
 
   if (!currentUser) return null;
 
@@ -77,31 +123,51 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
-    const file = e.target.files?.[0];
+  const handleFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'image' | 'file'
+  ) => {
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if (!file) return;
-
-    if (type === 'image' || file.type.startsWith('image/')) {
-      void sendImage(file);
+    if (!files.length) return;
+    if (files.length > 10) {
+      toast.error('Selecione no máximo 10 arquivos.');
       return;
     }
-
-    if (file.size > 700 * 1024) {
-      toast.error('Arquivo muito grande para o chat (máx. 700 KB por enquanto)');
+    if (uploadingImage) {
+      toast.info('Aguarde o envio anterior.');
       return;
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      void sendMessage(currentUser.username, {
-        content: `📎 ${file.name}`,
-        attachmentUrl: reader.result as string,
-        attachmentType: 'file',
-        attachmentName: file.name,
-      });
-    };
-    reader.readAsDataURL(file);
+    setUploadingImage(true);
+    let failed = 0;
+    try {
+      for (const file of files) {
+        try {
+          if (file.size > 15 * 1024 * 1024) throw new Error('Arquivo acima de 15 MB');
+          const isImage = type === 'image' || file.type.startsWith('image/');
+          const { publicUrl } = await uploadImage(file, {
+            pathPrefix: `chat/groups/${groupId}`,
+            sourceTable: 'group_messages',
+            sourceField: 'attachment_url',
+            uploadedBy: currentUser.id,
+            privateAccess: true,
+          });
+          await sendMessage(currentUser.username, {
+            content: isImage ? '📷 Imagem' : `📎 ${file.name}`,
+            attachmentUrl: publicUrl,
+            attachmentType: isImage ? 'image' : 'file',
+            attachmentName: file.name,
+          });
+        } catch (error) {
+          failed++;
+          console.error('Falha ao enviar arquivo de grupo:', error);
+          toast.error(`Não foi possível enviar ${file.name}`);
+        }
+      }
+      if (!failed) toast.success(`${files.length} arquivo(s) enviado(s)`);
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -151,14 +217,10 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
                 )}
 
                 {msg.attachment_type === 'file' && (
-                  <a
-                    href={msg.attachment_url}
-                    download={msg.attachment_name || undefined}
-                    className="flex items-center gap-2 break-all text-xs underline"
-                  >
-                    <FileText className="h-4 w-4 shrink-0" />
-                    {msg.attachment_name}
-                  </a>
+                  <GroupAttachment
+                    src={msg.attachment_url}
+                    name={msg.attachment_name || 'Arquivo'}
+                  />
                 )}
               </div>
             )}
@@ -203,7 +265,25 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto p-4">
+      <div
+        ref={scrollAreaRef}
+        onScroll={(event) => {
+          const area = event.currentTarget;
+          nearBottomRef.current = area.scrollHeight - area.scrollTop - area.clientHeight < 100;
+          if (area.scrollTop < 100 && hasMore && !loadingOlderRef.current) {
+            loadingOlderRef.current = true;
+            scrollRestoreRef.current = { height: area.scrollHeight, top: area.scrollTop };
+            void loadOlder()
+              .then((loaded) => {
+                if (!loaded) scrollRestoreRef.current = null;
+              })
+              .finally(() => {
+                loadingOlderRef.current = false;
+              });
+          }
+        }}
+        className="min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto p-4"
+      >
         {messages.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
             Nenhuma mensagem ainda. Comece a conversa!
@@ -227,6 +307,7 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
         <input
           ref={imageInputRef}
           type="file"
+          multiple
           accept="image/*"
           className="hidden"
           onChange={(e) => handleFileSelect(e, 'image')}
@@ -234,6 +315,7 @@ const GroupChatPanel = ({ groupId, groupName }: GroupChatPanelProps) => {
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           className="hidden"
           onChange={(e) => handleFileSelect(e, 'file')}
         />

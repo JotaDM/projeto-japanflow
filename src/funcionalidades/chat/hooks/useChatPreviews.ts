@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
+import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import {
   collection,
   doc,
@@ -8,7 +9,7 @@ import {
   Timestamp,
   query,
   where,
-  or,
+  orderBy,
   limit,
 } from 'firebase/firestore';
 export interface ChatPreview {
@@ -35,6 +36,9 @@ export function useChatPreviews(
     usernameToId: new Map<string, string>(),
   });
   const [messagesSnapshot, setMessagesSnapshot] = useState<any[]>([]);
+  const userId = currentUsername ? usersMap.usernameToId.get(currentUsername) || null : null;
+  const partnerIds = Array.from(usersMap.idToUsername.keys()).filter((id) => id !== userId);
+  const { privateByPartner, refresh: refreshCounts } = useChatUnreadCounts(userId, partnerIds);
 
   useEffect(() => {
     if (directory) {
@@ -79,27 +83,51 @@ export function useChatPreviews(
       return;
     }
 
-    const messagesQuery = query(
+    // Busca mensagens recentes nos dois sentidos. O limite anterior sem
+    // orderBy podia retornar mensagens antigas em vez das mais recentes.
+    // Os contadores refletem a janela carregada, não todo o histórico.
+    const sentQuery = query(
       collection(db, 'messages'),
-      or(where('senderId', '==', userId), where('receiverId', '==', userId)),
+      where('senderId', '==', userId),
+      orderBy('timestamp', 'desc'),
       limit(100)
     );
-
-    return onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        setMessagesSnapshot(
-          snapshot.docs.map((messageDoc) => ({
-            id: messageDoc.id,
-            ...messageDoc.data(),
-          }))
-        );
-      },
-      (error) => {
-        console.error('Erro ao carregar mensagens para previews:', error);
-        setMessagesSnapshot([]);
-      }
+    const receivedQuery = query(
+      collection(db, 'messages'),
+      where('receiverId', '==', userId),
+      orderBy('timestamp', 'desc'),
+      limit(100)
     );
+    let sent: any[] = [];
+    let received: any[] = [];
+    const publish = () => {
+      const merged = new Map<string, any>();
+      for (const message of [...sent, ...received]) merged.set(message.id, message);
+      setMessagesSnapshot([...merged.values()]);
+    };
+    const handleError = (error: Error) => {
+      console.error('Erro ao carregar mensagens para previews:', error);
+    };
+    const unsubSent = onSnapshot(
+      sentQuery,
+      (snapshot) => {
+        sent = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+        publish();
+      },
+      handleError
+    );
+    const unsubReceived = onSnapshot(
+      receivedQuery,
+      (snapshot) => {
+        received = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+        publish();
+      },
+      handleError
+    );
+    return () => {
+      unsubSent();
+      unsubReceived();
+    };
   }, [currentUsername, usersMap]);
 
   const rebuildPreviews = useCallback(() => {
@@ -135,7 +163,7 @@ export function useChatPreviews(
       )
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-    const chatMap = new Map<string, { lastMsg: any; unread: number }>();
+    const chatMap = new Map<string, { lastMsg: any }>();
 
     for (const message of rows) {
       const partnerId = message.senderId === currentUserId ? message.receiverId : message.senderId;
@@ -143,11 +171,7 @@ export function useChatPreviews(
       if (!partnerUsername) continue;
 
       if (!chatMap.has(partnerUsername)) {
-        chatMap.set(partnerUsername, { lastMsg: message, unread: 0 });
-      }
-
-      if (message.receiverId === currentUserId && !message.read && !message.deleted) {
-        chatMap.get(partnerUsername)!.unread += 1;
+        chatMap.set(partnerUsername, { lastMsg: message });
       }
     }
 
@@ -155,7 +179,7 @@ export function useChatPreviews(
       partnerUsername,
       lastMessageAt: value.lastMsg.createdAt,
       lastMessageContent: value.lastMsg.deleted ? 'Mensagem apagada' : value.lastMsg.content,
-      unreadCount: value.unread,
+      unreadCount: privateByPartner[usersMap.usernameToId.get(partnerUsername) || ''] ?? 0,
     }));
 
     result.sort(
@@ -163,7 +187,7 @@ export function useChatPreviews(
     );
 
     setPreviews(result);
-  }, [currentUsername, messagesSnapshot, usersMap]);
+  }, [currentUsername, messagesSnapshot, usersMap, privateByPartner]);
 
   useEffect(() => rebuildPreviews(), [rebuildPreviews]);
 
@@ -184,8 +208,9 @@ export function useChatPreviews(
         },
         { merge: true }
       );
+      refreshCounts();
     },
-    [currentUsername, usersMap]
+    [currentUsername, usersMap, refreshCounts]
   );
 
   return { previews, markAsRead };
