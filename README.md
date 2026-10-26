@@ -63,15 +63,15 @@ O sistema possui áreas e permissões diferentes conforme o perfil e as responsa
 
 ## Tecnologias utilizadas
 
-| Camada | Tecnologias |
-| --- | --- |
-| Interface | React, TypeScript, Vite |
-| Estilização e componentes | Tailwind CSS, shadcn/ui, Radix UI |
-| Autenticação e dados | Firebase Authentication, Cloud Firestore |
-| Arquivos | Firebase Cloud Storage |
-| Backend | Firebase Cloud Functions |
-| Publicação | Firebase Hosting |
-| Testes e qualidade | Vitest, Playwright, ESLint, Prettier, TypeScript |
+| Camada                    | Tecnologias                                      |
+| ------------------------- | ------------------------------------------------ |
+| Interface                 | React, TypeScript, Vite                          |
+| Estilização e componentes | Tailwind CSS, shadcn/ui, Radix UI                |
+| Autenticação e dados      | Firebase Authentication, Cloud Firestore         |
+| Arquivos                  | Firebase Cloud Storage                           |
+| Backend                   | Firebase Cloud Functions                         |
+| Publicação                | Firebase Hosting                                 |
+| Testes e qualidade        | Vitest, Playwright, ESLint, Prettier, TypeScript |
 
 ## Como executar localmente
 
