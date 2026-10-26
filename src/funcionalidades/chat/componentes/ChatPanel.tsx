@@ -725,7 +725,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
               )}
 
               {isMe && !msg.deleted && (
-                <CheckCheck
+                <span
                   title={
                     msg.readAt
                       ? `Lida em ${new Date(msg.readAt).toLocaleString('pt-BR')}`
@@ -733,8 +733,11 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
                         ? 'Lida'
                         : 'Enviada'
                   }
-                  className={cn('ml-0.5 h-3.5 w-3.5', read ? 'text-blue-400' : 'opacity-40')}
-                />
+                >
+                  <CheckCheck
+                    className={cn('ml-0.5 h-3.5 w-3.5', read ? 'text-blue-400' : 'opacity-40')}
+                  />
+                </span>
               )}
             </div>
           </>

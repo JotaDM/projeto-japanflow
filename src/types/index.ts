@@ -118,6 +118,8 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   read?: boolean;
+  readAt?: string;
+  reactions?: Record<string, string>;
   attachmentUrl?: string;
   attachmentType?: 'image' | 'file' | 'audio';
   attachmentName?: string;
