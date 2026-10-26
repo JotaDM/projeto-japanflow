@@ -5,18 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
-  Send,
-  Paperclip,
-  Mic,
-  Image,
-  FileText,
-  MicOff,
-  CheckCheck,
-  Smile,
-  Reply,
-  Info,
-  X,
-} from 'lucide-react';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Send, Paperclip, Mic, Image, FileText, MicOff, CheckCheck, Smile, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useChat } from '@/funcionalidades/chat/hooks/useChat';
@@ -549,6 +544,17 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     }
   };
 
+  const handleMessageSwipe = (msg: ChatMessage, dx: number, dy: number) => {
+    if (msg.deleted || Math.abs(dx) < 65 || Math.abs(dx) <= Math.abs(dy) * 1.5) return;
+    setReactionsFor(null);
+    if (dx > 0) {
+      setDetailsMessage(null);
+      setReplyTo(msg);
+    } else {
+      setDetailsMessage(msg);
+    }
+  };
+
   const renderMessage = (msg: ChatMessage) => {
     const isMe = msg.senderId === currentUser.id;
     const senderUser = users.find((u) => u.id === msg.senderId);
@@ -569,7 +575,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           if (!start || start.id !== msg.id || !touch || msg.deleted) return;
           const dx = touch.clientX - start.x;
           const dy = touch.clientY - start.y;
-          if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) setDetailsMessage(msg);
+          handleMessageSwipe(msg, dx, dy);
         }}
       >
         <div
@@ -581,16 +587,6 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           <button
             type="button"
             className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-            aria-label="Responder mensagem"
-            title="Responder"
-            disabled={Boolean(msg.deleted)}
-            onClick={() => setReplyTo(msg)}
-          >
-            <Reply className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             title="Reagir à mensagem"
             aria-label="Reagir à mensagem"
             aria-expanded={reactionsFor === msg.id}
@@ -598,18 +594,6 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
             onClick={() => setReactionsFor((previous) => (previous === msg.id ? null : msg.id))}
           >
             <Smile className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-            aria-label="Ver detalhes da mensagem"
-            title="Detalhes da mensagem (ou deslize a mensagem para o lado)"
-            onClick={() => {
-              setReactionsFor(null);
-              setDetailsMessage(msg);
-            }}
-          >
-            <Info className="h-4 w-4" />
           </button>
           {reactionsFor === msg.id && !msg.deleted && (
             <div
@@ -658,7 +642,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
             if (!start || start.id !== msg.id || msg.deleted) return;
             const dx = event.clientX - start.x;
             const dy = event.clientY - start.y;
-            if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) setDetailsMessage(msg);
+            handleMessageSwipe(msg, dx, dy);
           }}
           className={cn(
             'order-1 relative max-w-[82%] break-words rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%]',
@@ -761,44 +745,62 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
 
   return (
     <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden">
-      <Dialog
+      <Sheet
         open={Boolean(detailsMessage)}
         onOpenChange={(open) => {
           if (!open) setDetailsMessage(null);
         }}
       >
-        <DialogContent className="right-4 left-auto top-1/2 w-[min(360px,calc(100vw-32px))] max-w-none -translate-y-1/2 translate-x-0 rounded-xl">
-          <DialogTitle>Detalhes da mensagem</DialogTitle>
-          <DialogDescription>Informações de envio e visualização.</DialogDescription>
+        <SheetContent side="right" className="w-[min(440px,100vw)] overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Dados da mensagem</SheetTitle>
+            <SheetDescription>Informações de envio e leitura.</SheetDescription>
+          </SheetHeader>
           {detailsMessage && (
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Enviada por</span>
-                <p className="font-medium">
+            <div className="mt-8 space-y-6 text-sm">
+              <div
+                className={cn(
+                  'max-w-full rounded-xl border p-3',
+                  detailsMessage.senderId === currentUser.id ? 'bg-primary/10' : 'bg-muted/60'
+                )}
+              >
+                <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words">
+                  {detailsMessage.content || (detailsMessage.attachmentUrl ? 'Anexo' : 'Mensagem')}
+                </p>
+                <p className="mt-2 text-right text-xs text-muted-foreground">
+                  {new Date(detailsMessage.timestamp).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <div className="space-y-1 border-b pb-4">
+                <p className="font-medium">Remetente</p>
+                <p className="text-muted-foreground">
                   {users.find((u) => u.id === detailsMessage.senderId)?.name ||
                     detailsMessage.senderId}
                 </p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Enviada em</span>
-                <p className="font-medium">
+              <div className="space-y-1 border-b pb-4">
+                <p className="font-medium">Enviada</p>
+                <p className="text-muted-foreground">
                   {new Date(detailsMessage.timestamp).toLocaleString('pt-BR')}
                 </p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Visualizada em</span>
-                <p className="font-medium">
+              <div className="space-y-1 border-b pb-4">
+                <p className="font-medium">Lida</p>
+                <p className="text-muted-foreground">
                   {detailsMessage.readAt
                     ? new Date(detailsMessage.readAt).toLocaleString('pt-BR')
                     : detailsMessage.read
-                      ? 'Visualizada (horário indisponível)'
+                      ? 'Visualizada (horário não registrado)'
                       : 'Ainda não visualizada'}
                 </p>
               </div>
+              {detailsMessage.edited && (
+                <p className="text-xs text-muted-foreground">Mensagem editada</p>
+              )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
       <div className="flex shrink-0 items-center gap-3 border-b border-border/70 bg-card p-4">
         <ChatAvatar src={otherUser.avatar} name={otherUser.name} className="h-10 w-10 rounded-xl" />
         <div className="min-w-0">
