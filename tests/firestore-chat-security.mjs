@@ -106,7 +106,9 @@ try {
     const { default: firebase } = await import('firebase/compat/app');
     await import('firebase/compat/firestore');
     await assertSucceeds(
-      userB.doc(messagePath).update({ read: true, read_at: firebase.firestore.FieldValue.serverTimestamp() })
+      userB
+        .doc(messagePath)
+        .update({ read: true, read_at: firebase.firestore.FieldValue.serverTimestamp() })
     );
   });
   await test('Terceiro funcionário não pode editar', async () => {
