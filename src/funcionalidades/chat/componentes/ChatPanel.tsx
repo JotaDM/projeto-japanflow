@@ -74,9 +74,15 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [detailsMessage, setDetailsMessage] = useState<ChatMessage | null>(null);
   const [reactionsFor, setReactionsFor] = useState<string | null>(null);
-  const mouseSwipeStart = useRef<{ id: string; x: number; y: number } | null>(null);
+  const pointerSwipeStart = useRef<{
+    id: string;
+    pointerId: number;
+    x: number;
+    y: number;
+    dragging: boolean;
+  } | null>(null);
+  const [draggedMessage, setDraggedMessage] = useState<{ id: string; dx: number } | null>(null);
   const [showEmojis, setShowEmojis] = useState(false);
-  const swipeStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const emojis = [
     '😀',
@@ -564,19 +570,6 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       <div
         key={msg.id}
         className={cn('group flex items-center gap-1', isMe ? 'justify-end' : 'justify-start')}
-        onTouchStart={(event) => {
-          const touch = event.touches[0];
-          if (touch) swipeStartRef.current = { id: msg.id, x: touch.clientX, y: touch.clientY };
-        }}
-        onTouchEnd={(event) => {
-          const start = swipeStartRef.current;
-          swipeStartRef.current = null;
-          const touch = event.changedTouches[0];
-          if (!start || start.id !== msg.id || !touch || msg.deleted) return;
-          const dx = touch.clientX - start.x;
-          const dy = touch.clientY - start.y;
-          handleMessageSwipe(msg, dx, dy);
-        }}
       >
         <div
           className={cn(
@@ -632,20 +625,58 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
             if (!msg.deleted)
               void reactToMessage(msg.id, msg.reactions?.[currentUser.id] === '❤️' ? null : '❤️');
           }}
+          onDragStart={(event) => event.preventDefault()}
           onPointerDown={(event) => {
-            if (event.pointerType === 'mouse' && event.button === 0)
-              mouseSwipeStart.current = { id: msg.id, x: event.clientX, y: event.clientY };
+            if (msg.deleted || (event.pointerType === 'mouse' && event.button !== 0)) return;
+            const target = event.target as HTMLElement;
+            if (target.closest('button, a, input, textarea, video, audio')) return;
+            pointerSwipeStart.current = {
+              id: msg.id,
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              dragging: false,
+            };
+            // A captura garante que o gesto continue mesmo quando o cursor sai da bolha.
+            event.currentTarget.setPointerCapture(event.pointerId);
           }}
-          onPointerUp={(event) => {
-            const start = mouseSwipeStart.current;
-            mouseSwipeStart.current = null;
-            if (!start || start.id !== msg.id || msg.deleted) return;
+          onPointerMove={(event) => {
+            const start = pointerSwipeStart.current;
+            if (!start || start.id !== msg.id || start.pointerId !== event.pointerId) return;
             const dx = event.clientX - start.x;
             const dy = event.clientY - start.y;
-            handleMessageSwipe(msg, dx, dy);
+            if (!start.dragging && Math.abs(dx) > 9 && Math.abs(dx) > Math.abs(dy) * 1.2)
+              start.dragging = true;
+            if (start.dragging) {
+              if (event.cancelable) event.preventDefault();
+              setDraggedMessage({ id: msg.id, dx: Math.max(-105, Math.min(105, dx)) });
+            }
+          }}
+          onPointerUp={(event) => {
+            const start = pointerSwipeStart.current;
+            if (!start || start.id !== msg.id || start.pointerId !== event.pointerId) return;
+            pointerSwipeStart.current = null;
+            setDraggedMessage(null);
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            if (start.dragging)
+              handleMessageSwipe(msg, event.clientX - start.x, event.clientY - start.y);
+          }}
+          onPointerCancel={(event) => {
+            if (pointerSwipeStart.current?.pointerId === event.pointerId) {
+              pointerSwipeStart.current = null;
+              setDraggedMessage(null);
+            }
+          }}
+          style={{
+            touchAction: 'pan-y',
+            transform:
+              draggedMessage?.id === msg.id ? `translateX(${draggedMessage.dx}px)` : undefined,
+            transition: draggedMessage?.id === msg.id ? 'none' : 'transform 180ms ease-out',
+            cursor: msg.deleted ? 'default' : 'grab',
           }}
           className={cn(
-            'order-1 relative max-w-[82%] break-words rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%]',
+            'order-1 relative max-w-[82%] select-none break-words rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%]',
             isMe
               ? 'rounded-br-md bg-primary text-primary-foreground'
               : 'rounded-bl-md bg-secondary text-secondary-foreground',
