@@ -14,6 +14,7 @@ import {
   CheckCheck,
   Smile,
   Reply,
+  Info,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -573,13 +574,13 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       >
         <div
           className={cn(
-            'relative flex shrink-0 flex-col items-center gap-1',
+            'relative z-10 flex shrink-0 flex-col items-center gap-1 self-center',
             isMe ? 'order-1' : 'order-2'
           )}
         >
           <button
             type="button"
-            className="rounded-full p-1 opacity-65 hover:bg-accent hover:opacity-100"
+            className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             aria-label="Responder mensagem"
             title="Responder"
             disabled={Boolean(msg.deleted)}
@@ -589,28 +590,45 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           </button>
           <button
             type="button"
-            className="rounded-full p-1 opacity-65 hover:bg-accent hover:opacity-100"
+            className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             title="Reagir à mensagem"
             aria-label="Reagir à mensagem"
+            aria-expanded={reactionsFor === msg.id}
             disabled={Boolean(msg.deleted)}
             onClick={() => setReactionsFor((previous) => (previous === msg.id ? null : msg.id))}
           >
             <Smile className="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            aria-label="Ver detalhes da mensagem"
+            title="Detalhes da mensagem (ou deslize a mensagem para o lado)"
+            onClick={() => {
+              setReactionsFor(null);
+              setDetailsMessage(msg);
+            }}
+          >
+            <Info className="h-4 w-4" />
+          </button>
           {reactionsFor === msg.id && !msg.deleted && (
             <div
+              role="group"
+              aria-label="Escolher reação"
               className={cn(
-                'absolute top-full z-30 mt-1 flex gap-1 rounded-xl border border-border bg-popover p-1 shadow-lg',
-                isMe ? 'left-0' : 'right-0'
+                'absolute bottom-full z-50 mb-2 flex items-center gap-0.5 rounded-2xl border border-border bg-popover/95 px-2 py-1.5 shadow-xl backdrop-blur-sm',
+                'animate-in fade-in slide-in-from-bottom-2 zoom-in-95 duration-200 motion-reduce:animate-none',
+                isMe ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left'
               )}
             >
               {['👍', '❤️', '😂', '😮', '🙏', '🔥'].map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
-                  className="rounded p-1 text-base hover:bg-accent"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl transition-all duration-150 ease-out hover:z-10 hover:-translate-y-1 hover:scale-125 hover:bg-accent hover:drop-shadow-md active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary motion-reduce:transform-none"
                   title={`Reagir com ${emoji}`}
                   aria-label={`Reagir com ${emoji}`}
+                  aria-pressed={msg.reactions?.[currentUser.id] === emoji}
                   onClick={() => {
                     void reactToMessage(
                       msg.id,
