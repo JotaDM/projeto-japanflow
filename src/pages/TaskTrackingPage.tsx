@@ -73,6 +73,7 @@ const TaskTrackingPage = () => {
   const [search, setSearch] = useState('');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [rides, setRides] = useState<MotoboyAssignment[]>([]);
+  const [ridesError, setRidesError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
 
@@ -92,6 +93,7 @@ const TaskTrackingPage = () => {
     const unsubscribe = onSnapshot(
       ridesQuery,
       (snapshot) => {
+        setRidesError(null);
         setRides(
           snapshot.docs.map((rideDoc) => {
             const data = rideDoc.data();
@@ -116,6 +118,9 @@ const TaskTrackingPage = () => {
       },
       (error) => {
         console.error('Erro ao carregar corridas de acompanhamento:', error);
+        setRidesError(
+          'Não foi possível carregar as entregas relacionadas. Verifique suas permissões e os índices do Firestore.'
+        );
       }
     );
 
@@ -227,35 +232,51 @@ const TaskTrackingPage = () => {
           Carregando tarefas de acompanhamento...
         </p>
       )}
+      {ridesError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          {ridesError}
+        </p>
+      )}
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Card className="rounded-2xl border-border/70 shadow-card">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold">{stats.total}</p>
+          <CardContent className="flex min-h-[70px] flex-col items-center justify-center gap-1 p-3 text-center">
+            <p className="tabular-nums text-2xl leading-none font-bold">{stats.total}</p>
             <p className="text-xs text-muted-foreground">Total</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-border/70 shadow-card">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{stats.todo}</p>
+          <CardContent className="flex min-h-[70px] flex-col items-center justify-center gap-1 p-3 text-center">
+            <p className="tabular-nums text-2xl leading-none font-bold text-primary">
+              {stats.todo}
+            </p>
             <p className="text-xs text-muted-foreground">A Fazer</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-border/70 shadow-card">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-warning">{stats.inProgress}</p>
+          <CardContent className="flex min-h-[70px] flex-col items-center justify-center gap-1 p-3 text-center">
+            <p className="tabular-nums text-2xl leading-none font-bold text-warning">
+              {stats.inProgress}
+            </p>
             <p className="text-xs text-muted-foreground">Em Andamento</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-border/70 shadow-card">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-muted-foreground">{stats.paused}</p>
+          <CardContent className="flex min-h-[70px] flex-col items-center justify-center gap-1 p-3 text-center">
+            <p className="tabular-nums text-2xl leading-none font-bold text-muted-foreground">
+              {stats.paused}
+            </p>
             <p className="text-xs text-muted-foreground">Em Pausa</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-border/70 shadow-card">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-success">{stats.done}</p>
+          <CardContent className="flex min-h-[70px] flex-col items-center justify-center gap-1 p-3 text-center">
+            <p className="tabular-nums text-2xl leading-none font-bold text-success">
+              {stats.done}
+            </p>
             <p className="text-xs text-muted-foreground">Concluídas</p>
           </CardContent>
         </Card>
@@ -281,7 +302,7 @@ const TaskTrackingPage = () => {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(['all', 'active', 'done'] as const).map((f) => (
             <button
               key={f}

@@ -170,7 +170,7 @@ export default function RyanAnnouncements() {
           if (!sending) setComposer(value);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Enviar avisos para toda a equipe</DialogTitle>
           </DialogHeader>
@@ -202,6 +202,15 @@ export default function RyanAnnouncements() {
                   placeholder="Título da atualização"
                 />
                 <Textarea
+                  onPaste={(event) => {
+                    const images = Array.from(event.clipboardData.files).filter((file) =>
+                      file.type.startsWith('image/')
+                    );
+                    if (!images.length || sending) return;
+                    event.preventDefault();
+                    edit(draft.id, { files: [...draft.files, ...images].slice(0, 5) });
+                    toast.success('Imagem colada no aviso');
+                  }}
                   aria-label={`Mensagem do aviso ${index + 1}`}
                   value={draft.body}
                   maxLength={3000}
@@ -258,6 +267,7 @@ export default function RyanAnnouncements() {
       </Dialog>
       <Dialog open={Boolean(current)} onOpenChange={() => {}}>
         <DialogContent
+          className="max-h-[94vh] overflow-y-auto sm:max-w-4xl"
           onEscapeKeyDown={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
         >
@@ -275,7 +285,8 @@ export default function RyanAnnouncements() {
                     controls
                     playsInline
                     preload="metadata"
-                    className="max-h-[45vh] w-full rounded object-contain"
+                    controlsList="nodownload"
+                    className="max-h-[62vh] w-full rounded-lg bg-black object-contain"
                   />
                 ) : (
                   <a

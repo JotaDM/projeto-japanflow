@@ -352,6 +352,32 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Resposta privada ao autor do reporte, com confirmação de leitura por emoji.
+    match /backlog_responses/{reportId} {
+      allow read: if canManageBacklog()
+        || (isActive() && resource.data.recipient_id == currentUserId());
+      allow create: if canManageBacklog()
+        && request.resource.data.keys().hasOnly([
+          'report_id', 'recipient_id', 'author_id', 'body', 'created_at', 'reaction', 'reacted_at'
+        ])
+        && request.resource.data.report_id == reportId
+        && exists(/databases/$(database)/documents/user_problem_reports/$(reportId))
+        && request.resource.data.recipient_id == get(/databases/$(database)/documents/user_problem_reports/$(reportId)).data.user_id
+        && request.resource.data.author_id == currentUserId()
+        && request.resource.data.body is string
+        && request.resource.data.body.size() >= 2
+        && request.resource.data.body.size() <= 2000
+        && request.resource.data.reaction == null
+        && request.resource.data.reacted_at == null;
+      allow update: if isActive()
+        && resource.data.recipient_id == currentUserId()
+        && resource.data.reaction == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reaction', 'reacted_at'])
+        && request.resource.data.reaction in ['👍', '❤️', '🙏', '✅', '😊']
+        && request.resource.data.reacted_at == request.time;
+      allow delete: if false;
+    }
+
     match /user_problem_reports/{reportId} {
       allow create: if isActive()
         && request.resource.data.user_id == currentUserId()
@@ -395,7 +421,8 @@ service cloud.firestore {
         && collection != 'tasks'
         && collection != 'ryan_announcements'
         && collection != 'ryan_announcement_acks'
-        && collection != 'user_problem_reports';
+        && collection != 'user_problem_reports'
+        && collection != 'backlog_responses';
     }
   }
 }

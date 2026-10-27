@@ -8,6 +8,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  setDoc,
   type Timestamp,
 } from 'firebase/firestore';
 import {
@@ -18,6 +19,7 @@ import {
   Download,
   History,
   Sparkles,
+  MessageSquareReply,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { db } from '@/lib/firebase';
@@ -64,6 +66,9 @@ export default function BacklogPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
+  const [replyReport, setReplyReport] = useState<Report | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   useEffect(() => {
     if (!authorized) return;
@@ -139,7 +144,7 @@ export default function BacklogPage() {
         `Anexos: ${r.image_urls?.length || 0} (URLs omitidas por privacidade)`,
         'Descrição:',
         '```text',
-        r.description.replaceAll('```', '[marcador de codigo]'),
+        r.description.split('```').join('[marcador de codigo]'),
         '```'
       );
     });
@@ -185,6 +190,30 @@ export default function BacklogPage() {
     }
   };
 
+  const sendReply = async () => {
+    if (!user || !replyReport || replyText.trim().length < 2 || sendingReply) return;
+    setSendingReply(true);
+    try {
+      await setDoc(doc(db, 'backlog_responses', replyReport.id), {
+        report_id: replyReport.id,
+        recipient_id: replyReport.user_id,
+        author_id: user.id,
+        body: replyText.trim(),
+        created_at: serverTimestamp(),
+        reaction: null,
+        reacted_at: null,
+      });
+      toast.success('Resposta enviada ao funcionário');
+      setReplyReport(null);
+      setReplyText('');
+    } catch (error) {
+      console.error('Falha ao responder backlog', error);
+      toast.error('Não foi possível enviar a resposta');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
   if (!authorized)
     return (
       <p className="p-6 text-sm text-muted-foreground">
@@ -221,6 +250,16 @@ export default function BacklogPage() {
           </div>
         )}
         <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setReplyReport(r);
+              setReplyText('');
+            }}
+          >
+            <MessageSquareReply className="mr-1 h-4 w-4" /> Responder ao funcionário
+          </Button>
           {(['new', 'in_progress', 'resolved'] as const).map((status) => (
             <Button
               key={status}
@@ -261,6 +300,35 @@ export default function BacklogPage() {
           <Sparkles className="mr-2 h-4 w-4" /> Gerar relatório para IA
         </Button>
       </div>
+      <Dialog
+        open={Boolean(replyReport)}
+        onOpenChange={(open) => {
+          if (!open && !sendingReply) setReplyReport(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Responder ao reporte</DialogTitle>
+            <DialogDescription>
+              A resposta será exibida ao funcionário, que confirmará a leitura com um emoji.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="line-clamp-3 text-sm text-muted-foreground">{replyReport?.description}</p>
+          <Textarea
+            aria-label="Mensagem de resposta"
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            maxLength={2000}
+            placeholder="Escreva uma resposta..."
+          />
+          <Button
+            onClick={() => void sendReply()}
+            disabled={sendingReply || replyText.trim().length < 2}
+          >
+            {sendingReply ? 'Enviando...' : 'Enviar resposta'}
+          </Button>
+        </DialogContent>
+      </Dialog>
       <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
         <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
           <DialogHeader>

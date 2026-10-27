@@ -95,6 +95,15 @@ export default function ReportProblemButton() {
                   )}
                 </div>
                 <Textarea
+                  onPaste={(event) => {
+                    const images = Array.from(event.clipboardData.files).filter((file) =>
+                      file.type.startsWith('image/')
+                    );
+                    if (!images.length || busy) return;
+                    event.preventDefault();
+                    edit(item.id, { files: [...item.files, ...images].slice(0, 5) });
+                    toast.success('Imagem colada no reporte');
+                  }}
                   value={item.message}
                   maxLength={2500}
                   rows={4}

@@ -242,6 +242,8 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [archiveSearch, setArchiveSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   // Histórico paginado no diálogo; o Kanban operacional permanece intacto.
@@ -576,71 +578,84 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
         className="mb-4 rounded-2xl border border-border/70 bg-muted/15 p-3 sm:p-4"
         aria-label="Filtros de tarefas"
       >
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-          <SlidersHorizontal className="h-4 w-4 text-primary" /> Encontrar tarefas
-          <span className="ml-auto text-xs font-normal text-muted-foreground" aria-live="polite">
-            {filteredTasks.length} de {visibleTasks.length}
-          </span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1fr)_180px_180px_auto]">
-          <label className="relative block">
-            <span className="sr-only">Buscar por título ou descrição</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar tarefa..."
-              className="pl-9"
-            />
-          </label>
-          <label className="block">
-            <span className="sr-only">Filtrar por prioridade</span>
-            <select
-              aria-label="Filtrar por prioridade"
-              value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value)}
-              className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
-            >
-              <option value="all">Todas as prioridades</option>
-              {[...new Set(visibleTasks.map((task) => String(task.priority)))]
-                .sort()
-                .map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="sr-only">Filtrar por etapa</span>
-            <select
-              aria-label="Filtrar por etapa"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
-            >
-              <option value="all">Todas as etapas</option>
-              {columns.map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex items-center justify-between gap-3">
           <Button
             type="button"
-            variant="outline"
-            className="h-11"
-            disabled={!search && priorityFilter === 'all' && statusFilter === 'all'}
-            onClick={() => {
-              setSearch('');
-              setPriorityFilter('all');
-              setStatusFilter('all');
-            }}
+            variant={filtersExpanded ? 'secondary' : 'outline'}
+            className="gap-2 rounded-xl"
+            onClick={() => setFiltersExpanded((v) => !v)}
+            aria-expanded={filtersExpanded}
           >
-            Limpar filtros
+            <SlidersHorizontal className="h-4 w-4" /> Encontrar tarefas
+            {(search || priorityFilter !== 'all' || statusFilter !== 'all') && (
+              <span className="h-2 w-2 rounded-full bg-primary" />
+            )}
           </Button>
+          <span className="text-xs text-muted-foreground" aria-live="polite">
+            {filteredTasks.length} de {visibleTasks.length} ativas
+          </span>
         </div>
+        {filtersExpanded && (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1fr)_180px_180px_auto]">
+            <label className="relative block">
+              <span className="sr-only">Buscar por título ou descrição</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar tarefa..."
+                className="pl-9"
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">Filtrar por prioridade</span>
+              <select
+                aria-label="Filtrar por prioridade"
+                value={priorityFilter}
+                onChange={(event) => setPriorityFilter(event.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
+              >
+                <option value="all">Todas as prioridades</option>
+                {[...new Set(visibleTasks.map((task) => String(task.priority)))]
+                  .sort()
+                  .map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="sr-only">Filtrar por etapa</span>
+              <select
+                aria-label="Filtrar por etapa"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
+              >
+                <option value="all">Todas as etapas</option>
+                {columns.map((status) => (
+                  <option key={status} value={status}>
+                    {STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={!search && priorityFilter === 'all' && statusFilter === 'all'}
+              onClick={() => {
+                setSearch('');
+                setPriorityFilter('all');
+                setStatusFilter('all');
+              }}
+            >
+              Limpar filtros
+            </Button>
+          </div>
+        )}
         {filteredTasks.length === 0 && visibleTasks.length > 0 && (
           <p role="status" className="mt-3 text-sm text-muted-foreground">
             Nenhuma tarefa corresponde aos filtros. Limpe os filtros para ver o quadro completo.
@@ -657,69 +672,93 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
-            {pagedArchivedTasks.length === 0 ? (
-              <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 text-center">
-                <p className="text-sm text-muted-foreground">Nenhuma tarefa arquivada.</p>
-              </div>
-            ) : (
-              pagedArchivedTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/15 p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
-                    {task.description && (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {task.description}
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span>Concluída: {formatDateTime(task.doneAt)}</span>
-                      <span>Arquivada: {formatDateTime(task.archivedAt?.toISOString())}</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 gap-2"
-                    onClick={() => void handleRestoreTask(task.id)}
-                    disabled={restoringId !== null}
-                  >
-                    {restoringId === task.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RotateCcw className="h-4 w-4" />
-                    )}
-                    Restaurar
-                  </Button>
+          <div className="space-y-3">
+            <label className="relative block">
+              <span className="sr-only">Encontrar tarefas arquivadas</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={archiveSearch}
+                onChange={(event) => setArchiveSearch(event.target.value)}
+                placeholder="Encontrar tarefas arquivadas..."
+                className="pl-9"
+              />
+            </label>
+            <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {pagedArchivedTasks.filter((task) =>
+                `${task.title} ${task.description || ''}`
+                  .toLocaleLowerCase('pt-BR')
+                  .includes(archiveSearch.trim().toLocaleLowerCase('pt-BR'))
+              ).length === 0 ? (
+                <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 text-center">
+                  <p className="text-sm text-muted-foreground">Nenhuma tarefa arquivada.</p>
                 </div>
-              ))
-            )}
-            {archivedHistory.error && (
-              <p role="alert" className="text-xs text-destructive">
-                {archivedHistory.error}
+              ) : (
+                pagedArchivedTasks
+                  .filter((task) =>
+                    `${task.title} ${task.description || ''}`
+                      .toLocaleLowerCase('pt-BR')
+                      .includes(archiveSearch.trim().toLocaleLowerCase('pt-BR'))
+                  )
+                  .map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/15 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {task.title}
+                        </p>
+                        {task.description && (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {task.description}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span>Concluída: {formatDateTime(task.doneAt)}</span>
+                          <span>Arquivada: {formatDateTime(task.archivedAt?.toISOString())}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-2"
+                        onClick={() => void handleRestoreTask(task.id)}
+                        disabled={restoringId !== null}
+                      >
+                        {restoringId === task.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-4 w-4" />
+                        )}
+                        Restaurar
+                      </Button>
+                    </div>
+                  ))
+              )}
+              {archivedHistory.error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {archivedHistory.error}
+                </p>
+              )}
+              {archivedHistory.hasMore && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={archivedHistory.loading}
+                  onClick={() => void archivedHistory.loadMore()}
+                >
+                  {archivedHistory.loading
+                    ? 'Carregando…'
+                    : 'Carregar mais tarefas do histórico (25)'}
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">
+                A consulta busca apenas tarefas arquivadas vinculadas a este funcionário. Use
+                Carregar mais para consultar registros antigos.
               </p>
-            )}
-            {archivedHistory.hasMore && (
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={archivedHistory.loading}
-                onClick={() => void archivedHistory.loadMore()}
-              >
-                {archivedHistory.loading
-                  ? 'Carregando…'
-                  : 'Carregar mais tarefas do histórico (25)'}
-              </Button>
-            )}
-            <p className="text-xs text-muted-foreground">
-              A consulta busca apenas tarefas arquivadas vinculadas a este funcionário. Use Carregar
-              mais para consultar registros antigos.
-            </p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

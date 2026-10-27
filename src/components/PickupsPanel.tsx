@@ -79,10 +79,12 @@ const PickupsPanel = () => {
   const [pickups, setPickups] = useState<PickupRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detail, setDetail] = useState<PickupRow | null>(null);
+  const [pickupError, setPickupError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canSeePickups(currentUser)) {
       setPickups([]);
+      setPickupError(null);
       return;
     }
 
@@ -122,9 +124,12 @@ const PickupsPanel = () => {
         });
 
         setPickups(nextPickups);
+        setPickupError(null);
       },
       (error) => {
         console.error('Erro ao acompanhar retiradas:', error);
+        setPickupError(error.message);
+        toast.error('Falha ao carregar retiradas. Verifique sua permissão de acesso.');
       }
     );
 
@@ -200,6 +205,14 @@ const PickupsPanel = () => {
 
   return (
     <div className="jf-surface w-full min-w-0 space-y-2.5 overflow-hidden p-3.5 md:p-4">
+      {pickupError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
+        >
+          Não foi possível carregar o histórico de retiradas: {pickupError}
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2.5 text-sm font-semibold text-foreground">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
