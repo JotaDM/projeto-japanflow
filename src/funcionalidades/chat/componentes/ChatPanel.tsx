@@ -5,17 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
-  Send,
-  Paperclip,
-  Mic,
-  Image,
-  FileText,
-  MicOff,
-  CheckCheck,
-  Smile,
-  Reply,
-  X,
-} from 'lucide-react';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Send, Paperclip, Mic, Image, FileText, MicOff, CheckCheck, Smile, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useChat } from '@/funcionalidades/chat/hooks/useChat';
@@ -24,6 +20,9 @@ import {
   usePrivateTypingUsers,
 } from '@/funcionalidades/chat/hooks/useTypingPresence';
 import { uploadImage } from '@/lib/uploadImage';
+import { getSignedUrl } from '@/lib/signedUrl';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import {
   ChatAvatar,
   SafeChatImage,
@@ -34,14 +33,56 @@ interface ChatPanelProps {
   otherUser: User;
 }
 
+const SecureAttachment = ({ src, name }: { src: string; name: string }) => {
+  const [href, setHref] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void getSignedUrl(src)
+      .then((url) => {
+        if (active) setHref(url);
+      })
+      .catch(() => {
+        if (active) setHref(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [src]);
+  return href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 break-all text-xs underline"
+    >
+      <FileText className="h-4 w-4 shrink-0" />
+      {name}
+    </a>
+  ) : (
+    <span className="text-xs">Carregando arquivo protegido...</span>
+  );
+};
+
 const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const { authenticatedUser: currentUser, users } = useApp();
-  const { messages, sendMessage, getMessagesForChat } = useChat();
+  const { messages, sendMessage, getMessagesForChat, reactToMessage } = useChat();
+  const historySessionRef = useRef<ReturnType<typeof getMessagesForChat> | null>(null);
+  const historyLoadingRef = useRef(false);
+  const restoreScrollRef = useRef<{ height: number; top: number } | null>(null);
 
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [detailsMessage, setDetailsMessage] = useState<ChatMessage | null>(null);
+  const [reactionsFor, setReactionsFor] = useState<string | null>(null);
+  const pointerSwipeStart = useRef<{
+    id: string;
+    pointerId: number;
+    x: number;
+    y: number;
+    dragging: boolean;
+  } | null>(null);
+  const [draggedMessage, setDraggedMessage] = useState<{ id: string; dx: number } | null>(null);
   const [showEmojis, setShowEmojis] = useState(false);
-  const swipeStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const emojis = [
     '😀',
@@ -72,6 +113,23 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const [recording, setRecording] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [partnerOnline, setPartnerOnline] = useState(false);
+  useEffect(() => {
+    const stop = onSnapshot(
+      doc(db, 'presence', otherUser.id),
+      (snap) => {
+        const data = snap.data();
+        const last = data?.last_seen_at;
+        const ms =
+          typeof last?.toMillis === 'function' ? last.toMillis() : Date.parse(String(last ?? ''));
+        setPartnerOnline(
+          data?.status === 'online' && Number.isFinite(ms) && Date.now() - ms < 90_000
+        );
+      },
+      () => setPartnerOnline(false)
+    );
+    return stop;
+  }, [otherUser.id]);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
@@ -91,7 +149,12 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
 
   useEffect(() => {
     if (!currentUser?.id || !otherUser.id) return;
-    return getMessagesForChat(currentUser.id, otherUser.id);
+    const session = getMessagesForChat(currentUser.id, otherUser.id);
+    historySessionRef.current = session;
+    return () => {
+      session.stop();
+      historySessionRef.current = null;
+    };
   }, [currentUser?.id, otherUser.id, getMessagesForChat]);
 
   const chatId = [currentUser?.id, otherUser.id].sort().join(':');
@@ -112,6 +175,15 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       userInteractedWithScrollRef.current = false;
     }
 
+    if (restoreScrollRef.current && messages.length) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTop =
+          restoreScrollRef.current.top + container.scrollHeight - restoreScrollRef.current.height;
+        restoreScrollRef.current = null;
+        return;
+      }
+    }
     scrollToBottom();
 
     // Reconfere a posição após o navegador recalcular o layout.
@@ -261,21 +333,19 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
               attachmentName: file.name || 'imagem',
             });
           } else {
-            // Evita gravar anexos grandes em base64 no Firestore.
-            if (file.size > 700 * 1024) throw new Error('Arquivo acima de 700 KB');
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () =>
-                typeof reader.result === 'string'
-                  ? resolve(reader.result)
-                  : reject(new Error('Falha ao ler arquivo'));
-              reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
-              reader.readAsDataURL(file);
+            if (file.size > 15 * 1024 * 1024) throw new Error('Arquivo acima de 15 MB');
+            const participants = [currentUser.id, otherUser.id].sort();
+            const { publicUrl } = await uploadImage(file, {
+              pathPrefix: `chat/private/${participants[0]}/${participants[1]}`,
+              sourceTable: 'messages',
+              sourceField: 'attachmentUrl',
+              uploadedBy: currentUser.id,
+              privateAccess: true,
             });
             await sendMessage({
               receiverId: otherUser.id,
               content: `📎 ${file.name}`,
-              attachmentUrl: dataUrl,
+              attachmentUrl: publicUrl,
               attachmentType: 'file',
               attachmentName: file.name,
             });
@@ -480,6 +550,17 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
     }
   };
 
+  const handleMessageSwipe = (msg: ChatMessage, dx: number, dy: number) => {
+    if (msg.deleted || Math.abs(dx) < 65 || Math.abs(dx) <= Math.abs(dy) * 1.5) return;
+    setReactionsFor(null);
+    if (dx > 0) {
+      setDetailsMessage(null);
+      setReplyTo(msg);
+    } else {
+      setDetailsMessage(msg);
+    }
+  };
+
   const renderMessage = (msg: ChatMessage) => {
     const isMe = msg.senderId === currentUser.id;
     const senderUser = users.find((u) => u.id === msg.senderId);
@@ -489,33 +570,113 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
       <div
         key={msg.id}
         className={cn('group flex items-center gap-1', isMe ? 'justify-end' : 'justify-start')}
-        onTouchStart={(event) => {
-          const touch = event.touches[0];
-          if (touch) swipeStartRef.current = { id: msg.id, x: touch.clientX, y: touch.clientY };
-        }}
-        onTouchEnd={(event) => {
-          const start = swipeStartRef.current;
-          swipeStartRef.current = null;
-          const touch = event.changedTouches[0];
-          if (!start || start.id !== msg.id || !touch || msg.deleted) return;
-          const dx = touch.clientX - start.x;
-          const dy = touch.clientY - start.y;
-          if (dx > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) setReplyTo(msg);
-        }}
       >
-        <button
-          type="button"
-          className="rounded-full p-1 opacity-60 hover:bg-accent hover:opacity-100"
-          aria-label="Responder mensagem"
-          title="Responder"
-          disabled={Boolean(msg.deleted)}
-          onClick={() => setReplyTo(msg)}
-        >
-          <Reply className="h-4 w-4" />
-        </button>
         <div
           className={cn(
-            'relative max-w-[82%] break-words rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%]',
+            'relative z-10 flex shrink-0 flex-col items-center gap-1 self-center',
+            isMe ? 'order-1' : 'order-2'
+          )}
+        >
+          <button
+            type="button"
+            className="rounded-full p-1 opacity-65 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            title="Reagir à mensagem"
+            aria-label="Reagir à mensagem"
+            aria-expanded={reactionsFor === msg.id}
+            disabled={Boolean(msg.deleted)}
+            onClick={() => setReactionsFor((previous) => (previous === msg.id ? null : msg.id))}
+          >
+            <Smile className="h-4 w-4" />
+          </button>
+          {reactionsFor === msg.id && !msg.deleted && (
+            <div
+              role="group"
+              aria-label="Escolher reação"
+              className={cn(
+                'absolute bottom-full z-50 mb-2 flex items-center gap-0.5 rounded-2xl border border-border bg-popover/95 px-2 py-1.5 shadow-xl backdrop-blur-sm',
+                'animate-in fade-in slide-in-from-bottom-2 zoom-in-95 duration-200 motion-reduce:animate-none',
+                isMe ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left'
+              )}
+            >
+              {['👍', '❤️', '😂', '😮', '🙏', '🔥'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl transition-all duration-150 ease-out hover:z-10 hover:-translate-y-1 hover:scale-125 hover:bg-accent hover:drop-shadow-md active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary motion-reduce:transform-none"
+                  title={`Reagir com ${emoji}`}
+                  aria-label={`Reagir com ${emoji}`}
+                  aria-pressed={msg.reactions?.[currentUser.id] === emoji}
+                  onClick={() => {
+                    void reactToMessage(
+                      msg.id,
+                      msg.reactions?.[currentUser.id] === emoji ? null : emoji
+                    );
+                    setReactionsFor(null);
+                  }}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div
+          onDoubleClick={() => {
+            if (!msg.deleted)
+              void reactToMessage(msg.id, msg.reactions?.[currentUser.id] === '❤️' ? null : '❤️');
+          }}
+          onDragStart={(event) => event.preventDefault()}
+          onPointerDown={(event) => {
+            if (msg.deleted || (event.pointerType === 'mouse' && event.button !== 0)) return;
+            const target = event.target as HTMLElement;
+            if (target.closest('button, a, input, textarea, video, audio')) return;
+            pointerSwipeStart.current = {
+              id: msg.id,
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              dragging: false,
+            };
+            // A captura garante que o gesto continue mesmo quando o cursor sai da bolha.
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const start = pointerSwipeStart.current;
+            if (!start || start.id !== msg.id || start.pointerId !== event.pointerId) return;
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+            if (!start.dragging && Math.abs(dx) > 9 && Math.abs(dx) > Math.abs(dy) * 1.2)
+              start.dragging = true;
+            if (start.dragging) {
+              if (event.cancelable) event.preventDefault();
+              setDraggedMessage({ id: msg.id, dx: Math.max(-105, Math.min(105, dx)) });
+            }
+          }}
+          onPointerUp={(event) => {
+            const start = pointerSwipeStart.current;
+            if (!start || start.id !== msg.id || start.pointerId !== event.pointerId) return;
+            pointerSwipeStart.current = null;
+            setDraggedMessage(null);
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            if (start.dragging)
+              handleMessageSwipe(msg, event.clientX - start.x, event.clientY - start.y);
+          }}
+          onPointerCancel={(event) => {
+            if (pointerSwipeStart.current?.pointerId === event.pointerId) {
+              pointerSwipeStart.current = null;
+              setDraggedMessage(null);
+            }
+          }}
+          style={{
+            touchAction: 'pan-y',
+            transform:
+              draggedMessage?.id === msg.id ? `translateX(${draggedMessage.dx}px)` : undefined,
+            transition: draggedMessage?.id === msg.id ? 'none' : 'transform 180ms ease-out',
+            cursor: msg.deleted ? 'default' : 'grab',
+          }}
+          className={cn(
+            'order-1 relative max-w-[82%] select-none break-words rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%]',
             isMe
               ? 'rounded-br-md bg-primary text-primary-foreground'
               : 'rounded-bl-md bg-secondary text-secondary-foreground',
@@ -556,14 +717,10 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
                 )}
 
                 {msg.attachmentType === 'file' && (
-                  <a
-                    href={msg.attachmentUrl}
-                    download={msg.attachmentName}
-                    className="flex items-center gap-2 break-all text-xs underline"
-                  >
-                    <FileText className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0">{msg.attachmentName}</span>
-                  </a>
+                  <SecureAttachment
+                    src={msg.attachmentUrl}
+                    name={msg.attachmentName || 'Arquivo'}
+                  />
                 )}
               </div>
             )}
@@ -572,6 +729,16 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
               {msg.content}
             </p>
 
+            {!msg.deleted && Object.values(msg.reactions || {}).length > 0 && (
+              <div className="mt-1 flex gap-1 text-[11px]" aria-label="Reações da mensagem">
+                {[...new Set(Object.values(msg.reactions || {}))].map((emoji) => (
+                  <span key={emoji} className="rounded-full bg-background/15 px-1.5 py-0.5">
+                    {emoji}{' '}
+                    {Object.values(msg.reactions || {}).filter((item) => item === emoji).length}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="mt-1 flex items-center gap-1">
               <span className={cn('text-[10px]', isMe ? 'opacity-60' : 'text-muted-foreground')}>
                 {new Date(msg.timestamp).toLocaleDateString('pt-BR', {
@@ -589,9 +756,19 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
               )}
 
               {isMe && !msg.deleted && (
-                <CheckCheck
-                  className={cn('ml-0.5 h-3.5 w-3.5', read ? 'text-blue-400' : 'opacity-40')}
-                />
+                <span
+                  title={
+                    msg.readAt
+                      ? `Lida em ${new Date(msg.readAt).toLocaleString('pt-BR')}`
+                      : read
+                        ? 'Lida'
+                        : 'Enviada'
+                  }
+                >
+                  <CheckCheck
+                    className={cn('ml-0.5 h-3.5 w-3.5', read ? 'text-blue-400' : 'opacity-40')}
+                  />
+                </span>
               )}
             </div>
           </>
@@ -602,6 +779,62 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
 
   return (
     <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden">
+      <Sheet
+        open={Boolean(detailsMessage)}
+        onOpenChange={(open) => {
+          if (!open) setDetailsMessage(null);
+        }}
+      >
+        <SheetContent side="right" className="w-[min(440px,100vw)] overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Dados da mensagem</SheetTitle>
+            <SheetDescription>Informações de envio e leitura.</SheetDescription>
+          </SheetHeader>
+          {detailsMessage && (
+            <div className="mt-8 space-y-6 text-sm">
+              <div
+                className={cn(
+                  'max-w-full rounded-xl border p-3',
+                  detailsMessage.senderId === currentUser.id ? 'bg-primary/10' : 'bg-muted/60'
+                )}
+              >
+                <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words">
+                  {detailsMessage.content || (detailsMessage.attachmentUrl ? 'Anexo' : 'Mensagem')}
+                </p>
+                <p className="mt-2 text-right text-xs text-muted-foreground">
+                  {new Date(detailsMessage.timestamp).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <div className="space-y-1 border-b pb-4">
+                <p className="font-medium">Remetente</p>
+                <p className="text-muted-foreground">
+                  {users.find((u) => u.id === detailsMessage.senderId)?.name ||
+                    detailsMessage.senderId}
+                </p>
+              </div>
+              <div className="space-y-1 border-b pb-4">
+                <p className="font-medium">Enviada</p>
+                <p className="text-muted-foreground">
+                  {new Date(detailsMessage.timestamp).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <div className="space-y-1 border-b pb-4">
+                <p className="font-medium">Lida</p>
+                <p className="text-muted-foreground">
+                  {detailsMessage.readAt
+                    ? new Date(detailsMessage.readAt).toLocaleString('pt-BR')
+                    : detailsMessage.read
+                      ? 'Visualizada (horário não registrado)'
+                      : 'Ainda não visualizada'}
+                </p>
+              </div>
+              {detailsMessage.edited && (
+                <p className="text-xs text-muted-foreground">Mensagem editada</p>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
       <div className="flex shrink-0 items-center gap-3 border-b border-border/70 bg-card p-4">
         <ChatAvatar src={otherUser.avatar} name={otherUser.name} className="h-10 w-10 rounded-xl" />
         <div className="min-w-0">
@@ -611,7 +844,9 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
               Digitando...
             </p>
           ) : (
-            <p className="truncate text-[11px] text-muted-foreground">@{otherUser.username}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {partnerOnline ? 'Online' : 'Offline'} · @{otherUser.username}
+            </p>
           )}
         </div>
       </div>
@@ -631,6 +866,22 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
           const distanceFromBottom =
             container.scrollHeight - container.scrollTop - container.clientHeight;
           shouldAutoScrollRef.current = distanceFromBottom < 100;
+          if (
+            container.scrollTop < 100 &&
+            !historyLoadingRef.current &&
+            historySessionRef.current
+          ) {
+            historyLoadingRef.current = true;
+            restoreScrollRef.current = { height: container.scrollHeight, top: container.scrollTop };
+            void historySessionRef.current
+              .loadOlder()
+              .then((loaded) => {
+                if (!loaded) restoreScrollRef.current = null;
+              })
+              .finally(() => {
+                historyLoadingRef.current = false;
+              });
+          }
         }}
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 [overflow-anchor:none]"
       >

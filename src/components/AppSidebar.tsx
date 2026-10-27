@@ -86,7 +86,9 @@ const AppSidebar = ({
     dismissAll: dismissSystemNotifications,
   } = useSystemNotifications();
   const isTiDashboardUser = Boolean(
-    authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    ['japan-ti', 'ryan', 'joe_'].includes(
+      authenticatedUser?.username?.trim().toLowerCase() || ''
+    ) ||
     (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
     isActingAsTi
   );

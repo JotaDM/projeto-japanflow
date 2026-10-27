@@ -93,48 +93,96 @@ export async function logoutUser(): Promise<void> {
   await firebaseSignOut(auth);
 }
 
+const transientAuthCodes = new Set([
+  'unavailable',
+  'deadline-exceeded',
+  'resource-exhausted',
+  'cancelled',
+  'firestore/unavailable',
+  'firestore/deadline-exceeded',
+  'firestore/resource-exhausted',
+  'firestore/cancelled',
+]);
+
+const isTransientProfileError = (error: unknown) => {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code)
+      : '';
+  return transientAuthCodes.has(code);
+};
+
+const waitBeforeRetry = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Assinatura de sessão com cancelamento de respostas antigas.
+ * Retentativas transitórias limitadas; não faz sign-out por falha de rede.
+ */
 export function subscribeToAuthChanges(
   callback: (user: User | null) => void,
   onReady?: () => void
 ) {
-  return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-    try {
-      if (!firebaseUser) {
-        callback(null);
-        return;
-      }
+  let disposed = false;
+  let revision = 0;
+  let ready = false;
 
-      const profile = await loadProfile(firebaseUser);
-      callback(profile);
-    } catch (error) {
-      console.warn('Falha ao carregar perfil da sessão Firebase:', error);
-      const code =
-        typeof error === 'object' && error !== null && 'code' in error
-          ? String((error as { code?: unknown }).code)
-          : '';
-      // Falhas transitorias nao devem revogar uma autenticacao valida.
-      // Firestore Rules continuam protegendo dados enquanto o perfil nao carrega.
-      const transientCodes = new Set([
-        'unavailable',
-        'deadline-exceeded',
-        'resource-exhausted',
-        'cancelled',
-        'firestore/unavailable',
-        'firestore/deadline-exceeded',
-        'firestore/resource-exhausted',
-        'firestore/cancelled',
-      ]);
-      if (transientCodes.has(code)) {
-        // Nao deslogar por queda de rede. Manter estado anterior ate novo evento Auth.
-        return;
-      }
-      // Contas sem vinculo, desativadas ou acesso negado ainda sao encerradas.
-      await firebaseSignOut(auth).catch(() => undefined);
-      callback(null);
-    } finally {
+  const finishReady = () => {
+    if (!disposed && !ready) {
+      ready = true;
       onReady?.();
     }
-  });
+  };
+
+  const unsubscribe = onAuthStateChanged(
+    auth,
+    (firebaseUser: FirebaseUser | null) => {
+      const currentRevision = ++revision;
+      const isCurrent = () => !disposed && revision === currentRevision;
+
+      void (async () => {
+        if (!firebaseUser) {
+          if (isCurrent()) callback(null);
+          finishReady();
+          return;
+        }
+
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            const profile = await loadProfile(firebaseUser);
+            if (isCurrent()) callback(profile);
+            return;
+          } catch (error) {
+            if (!isCurrent()) return;
+            if (isTransientProfileError(error)) {
+              console.warn('Firestore indisponível ao restaurar sessão:', error);
+              if (attempt < 2) {
+                await waitBeforeRetry(400 * (attempt + 1));
+                continue;
+              }
+              // Não encerrar credencial válida. A UI pode oferecer recarregamento.
+              console.error('Não foi possível recuperar o perfil após 3 tentativas.');
+              return;
+            }
+            console.warn('Sessão sem perfil válido:', error);
+            await firebaseSignOut(auth).catch(() => undefined);
+            if (isCurrent()) callback(null);
+            return;
+          }
+        }
+      })().finally(finishReady);
+    },
+    (error) => {
+      console.error('Erro no observador de autenticação Firebase:', error);
+      if (!disposed) callback(null);
+      finishReady();
+    }
+  );
+
+  return () => {
+    disposed = true;
+    revision += 1;
+    unsubscribe();
+  };
 }
 
 export async function changeOwnPassword(

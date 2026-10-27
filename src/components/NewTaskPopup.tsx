@@ -9,7 +9,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Bell } from 'lucide-react';
+import { Bell, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface QueuedNotif {
   id: string;
@@ -52,6 +53,7 @@ const NewTaskPopup = () => {
   const { currentUser, notifications, tasks, markNotificationRead, playNotificationSound } =
     useApp();
   const [queue, setQueue] = useState<QueuedNotif[]>([]);
+  const navigate = useNavigate();
   const seenRef = useRef<Set<string>>(loadSeen());
   const installTsRef = useRef<number>(getInstallTs());
   const initializedRef = useRef(false);
@@ -113,7 +115,7 @@ const NewTaskPopup = () => {
         if (!o) handleClose();
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[calc(100vw-2rem)] rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-primary" />
@@ -124,7 +126,18 @@ const NewTaskPopup = () => {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button onClick={handleClose}>OK</Button>
+          <Button variant="outline" onClick={handleClose}>
+            Agora não
+          </Button>
+          <Button
+            onClick={() => {
+              handleClose();
+              navigate('/board');
+            }}
+            className="gap-2"
+          >
+            Ver meu quadro <ArrowRight className="h-4 w-4" />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

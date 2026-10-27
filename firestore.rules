@@ -84,7 +84,15 @@ service cloud.firestore {
 
     match /app_settings/{docId} {
       allow read: if isActive();
-      allow write: if isAdmin();
+      // Apenas o texto do rodapé pode ser alterado pela equipe autorizada à GAS.
+      allow create, update: if docId == 'system_footer'
+        && canReadGas()
+        && request.resource.data.keys().hasOnly(['message', 'updated_at'])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 180;
+      allow create, update: if docId != 'system_footer' && isAdmin();
+      allow delete: if docId != 'system_footer' && isAdmin();
     }
 
     match /freight_destinations/{docId} {
@@ -110,8 +118,17 @@ service cloud.firestore {
 
     // Histórico agregado do monitor: somente leitura por administradores/TI.
     // Gravações são exclusivas do backend com credenciais de serviço.
+    function canReadGas() {
+      return isActive() && exists(currentUserPath())
+        && get(currentUserPath()).data.active != false
+        && (
+          get(currentUserPath()).data.username in ['ryan', 'joe_', 'japan-ti']
+          || isTiMaster()
+        );
+    }
+
     match /system_usage_daily/{day} {
-      allow read: if isAdmin();
+      allow read: if canReadGas();
       allow create, update, delete: if false;
     }
 
@@ -130,8 +147,7 @@ service cloud.firestore {
       }
 
       allow get: if participant(resource.data);
-      allow list: if participant(resource.data)
-        && request.query.limit <= 100;
+      allow list: if participant(resource.data);
       allow create: if isActive()
         && request.resource.data.senderId == currentUserId()
         && request.resource.data.receiverId is string
@@ -152,9 +168,24 @@ service cloud.firestore {
           )
           ||
           (
+            // Cada participante altera apenas sua reação; o conteúdo segue imutável.
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+            && request.resource.data.get('reactions', {}) is map
+            && resource.data.get('reactions', {}) is map
+            && request.resource.data.reactions.diff(resource.data.get('reactions', {}))
+              .affectedKeys().hasOnly([currentUserId()])
+            && (
+              !(currentUserId() in request.resource.data.reactions)
+              || request.resource.data.reactions[currentUserId()] in ['👍', '❤️', '😂', '😮', '🙏', '🔥']
+            )
+          )
+          ||
+          (
             resource.data.receiverId == currentUserId()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'read_at'])
+            && resource.data.get('read', false) == false
             && request.resource.data.read == true
+            && request.resource.data.read_at == request.time
           )
         );
       allow delete: if false;
@@ -194,8 +225,7 @@ service cloud.firestore {
 
     match /group_messages/{messageId} {
       allow get: if isGroupMember(resource.data.group_id);
-      allow list: if isGroupMember(resource.data.group_id)
-        && request.query.limit <= 100;
+      allow list: if isGroupMember(resource.data.group_id);
       allow create: if isActive()
         && request.resource.data.group_id is string
         && isGroupMember(request.resource.data.group_id)
@@ -298,7 +328,14 @@ service cloud.firestore {
       allow read: if isActive();
       allow create: if isRyan()
         && request.resource.data.created_by == currentUserId()
-        && request.resource.data.keys().hasOnly(['title','body','created_by','created_at'])
+        && request.resource.data.keys().hasOnly(['title','body','created_by','created_at','image_urls','media_types','batch_id','batch_order'])
+        && request.resource.data.image_urls is list
+        && request.resource.data.image_urls.size() <= 5
+        && request.resource.data.media_types is list
+        && request.resource.data.media_types.size() == request.resource.data.image_urls.size()
+        && request.resource.data.media_types.hasOnly(['image', 'video'])
+        && request.resource.data.batch_id is string
+        && request.resource.data.batch_order is int
         && request.resource.data.title is string
         && request.resource.data.title.size() <= 120
         && request.resource.data.body is string
@@ -321,11 +358,18 @@ service cloud.firestore {
         && request.resource.data.status == 'new'
         && request.resource.data.description is string
         && request.resource.data.description.size() >= 10
-        && request.resource.data.description.size() <= 2500;
+        && request.resource.data.description.size() <= 2500
+        && request.resource.data.archived == false
+        && request.resource.data.image_urls is list
+        && request.resource.data.image_urls.size() <= 5;
       allow read: if canManageBacklog() || (isActive() && resource.data.user_id == currentUserId());
       allow update: if canManageBacklog()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updated_at','updated_by'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','archived','updated_at','updated_by'])
         && request.resource.data.status in ['new','in_progress','resolved']
+        && request.resource.data.archived is bool
+        && (request.resource.data.status != 'resolved' || request.resource.data.archived == true)
+        && request.resource.data.archived is bool
+        && (request.resource.data.status != 'resolved' || request.resource.data.archived == true)
         && request.resource.data.updated_by == currentUserId();
       allow delete: if false;
     }

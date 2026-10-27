@@ -390,6 +390,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
 
     try {
       const insertedTask = await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: isSeparacao && enderecoDiferente ? `🚨 ENDEREÇO DIFERENTE - ${title}` : title,
         description: finalDescription,
         priority,
@@ -485,6 +486,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
       deadlinePatricia.setHours(23, 59, 59, 999);
       const patStatusHistory = [{ status: 'todo', enteredAt: new Date().toISOString() }];
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: `${enderecoDiferente ? '🚨 ENDEREÇO DIFERENTE - ' : ''}🚛 Transportadora ${transpLabel}: ${title}`,
         description: patriciaTaskDesc,
         status: 'todo',
@@ -580,6 +582,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
       deadlineForWilliam.setHours(23, 59, 59, 999);
       const statusHistory = [{ status: 'todo', enteredAt: new Date().toISOString() }];
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: `${enderecoDiferente ? '🚨 ENDEREÇO DIFERENTE - ' : ''}📮 Etiqueta ${modalLabel}: ${title}`,
         description: williamTaskDesc,
         status: 'todo',
@@ -665,6 +668,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
             ? `${enderecoPrefix}${trocaPrefix}📄 Boleto: ${title}`
             : `${enderecoPrefix}🔄 TROCA: ${title}`;
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: finTitle,
         description: financialTaskDesc,
         status: 'todo',
@@ -730,6 +734,7 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
       deadlineBaixa.setHours(23, 59, 59, 999);
       const baixaHistory = [{ status: 'todo', enteredAt: new Date().toISOString() }];
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: `${enderecoDiferente ? '🚨 ENDEREÇO DIFERENTE - ' : ''}${baixaTitlePrefix}: ${title}`,
         description: baixaDesc,
         status: 'todo',

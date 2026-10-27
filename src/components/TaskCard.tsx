@@ -84,6 +84,8 @@ const TaskCard = ({
       await updateDoc(doc(db, 'tasks', task.id), {
         image_url: publicUrl,
         status: 'done',
+        completed_at: now,
+        board_visible: true,
         updated_at: now,
         status_history: [...(task.statusHistory || []), { status: 'done', enteredAt: nowIso }],
       });

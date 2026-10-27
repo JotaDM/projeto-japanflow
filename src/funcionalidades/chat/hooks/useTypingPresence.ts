@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { collection, doc, onSnapshot, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const TYPING_TTL_MS = 5_000;
@@ -45,15 +45,11 @@ export function usePrivateTyping(
       setIsOtherTyping(Boolean(otherRow?.data?.typing_to_user_id === currentUserId && fresh));
     };
 
-    // Escuta a coleção inteira, igual ao indicador de grupos.
-    // Isso evita depender de o documentId ser exatamente igual ao legacy user id.
+    // O escritor usa doc(user_presence, userId): acompanhar apenas o parceiro.
     const unsubscribe = onSnapshot(
-      collection(db, 'user_presence'),
+      doc(db, 'user_presence', otherUserId),
       (snapshot) => {
-        rowsRef.current = snapshot.docs.map((presenceDoc) => ({
-          id: presenceDoc.id,
-          data: presenceDoc.data(),
-        }));
+        rowsRef.current = snapshot.exists() ? [{ id: snapshot.id, data: snapshot.data() }] : [];
         evaluate();
       },
       (error) => console.warn('Falha ao acompanhar digitação privada:', error)
@@ -146,7 +142,7 @@ export function useGroupTyping(
     };
 
     const unsubscribe = onSnapshot(
-      collection(db, 'user_presence'),
+      query(collection(db, 'user_presence'), where('typing_group_id', '==', groupId)),
       (snapshot) => {
         rowsRef.current = snapshot.docs.map((presenceDoc) => ({
           id: presenceDoc.id,
@@ -239,7 +235,7 @@ export function usePrivateTypingUsers(currentUserId: string | null | undefined) 
     };
 
     const unsubscribe = onSnapshot(
-      collection(db, 'user_presence'),
+      query(collection(db, 'user_presence'), where('typing_to_user_id', '==', currentUserId)),
       (snapshot) => {
         rowsRef.current = snapshot.docs.map((presenceDoc) => ({
           id: presenceDoc.id,

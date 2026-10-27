@@ -112,6 +112,20 @@ service firebase.storage {
     // ANEXOS OPERACIONAIS DO JAPANFLOW
     // ========================================
 
+    // Vídeos de avisos: mesmos usuários ativos, apenas na pasta de avisos.
+    // Arquivos gerais continuam obedecendo a validUpload().
+    match /attachments/announcements/{filePath=**} {
+      allow read: if activeUser();
+      allow create: if activeUser()
+        && resource == null
+        && request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= 25 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+      allow update: if false;
+      allow delete: if adminUser();
+    }
+
     match /attachments/{folder}/{filePath=**} {
       allow read: if activeUser()
         && folder != 'chat';

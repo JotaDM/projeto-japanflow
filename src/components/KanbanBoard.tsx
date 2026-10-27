@@ -5,6 +5,8 @@ import {
   ArrowUp,
   CheckSquare2,
   Loader2,
+  Search,
+  SlidersHorizontal,
   RotateCcw,
   X,
 } from 'lucide-react';
@@ -28,6 +30,7 @@ import { useApp } from '@/contexts/AppContext';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import TaskCard from './TaskCard';
 import TaskDetailDialog from './TaskDetailDialog';
+import { useArchivedTasksForBoard } from '@/hooks/useArchivedTasksForBoard';
 
 const ALL_COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'paused', 'done'];
 const MOTOBOY_COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'done'];
@@ -86,6 +90,8 @@ const COLUMN_STYLES: Record<TaskStatus, { badge: string; dot: string }> = {
 
 interface KanbanBoardProps {
   tasks: Task[];
+  boardUserId: string;
+  boardAuthUid?: string;
   showAssignee?: boolean;
 }
 
@@ -112,7 +118,6 @@ const KanbanColumn = ({
   onTaskClick,
   selectedIds,
   onTaskSelection,
-  archivedCount = 0,
   onArchivedClick,
   onArchiveCompleted,
   archiving = false,
@@ -122,7 +127,6 @@ const KanbanColumn = ({
   onTaskClick: (task: Task) => void;
   selectedIds: Set<string>;
   onTaskSelection: (task: Task, event: MouseEvent<HTMLDivElement>) => void;
-  archivedCount?: number;
   onArchivedClick?: () => void;
   onArchiveCompleted?: () => void;
   archiving?: boolean;
@@ -132,7 +136,7 @@ const KanbanColumn = ({
   const isEmpty = tasks.length === 0;
 
   return (
-    <section className="self-start min-w-[250px] flex-1 sm:min-w-[280px] lg:min-w-0">
+    <section className="self-start min-w-[min(85vw,320px)] snap-start flex-1 sm:min-w-[280px] lg:min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2">
           <span className={cn('h-2 w-2 rounded-full', styles.dot)} />
@@ -150,10 +154,8 @@ const KanbanColumn = ({
                 'jf-interactive inline-flex min-w-7 items-center justify-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold',
                 styles.badge
               )}
-              aria-label={`Ver tarefas arquivadas. ${tasks.length} concluída${
-                tasks.length !== 1 ? 's' : ''
-              } no quadro e ${archivedCount} arquivada${archivedCount !== 1 ? 's' : ''}.`}
-              title={`${tasks.length} concluída${tasks.length !== 1 ? 's' : ''} no quadro • ${archivedCount} arquivada${archivedCount !== 1 ? 's' : ''}. Clique para ver arquivadas.`}
+              aria-label={`Ver tarefas arquivadas. ${tasks.length} concluída${tasks.length !== 1 ? 's' : ''} no quadro.`}
+              title={`${tasks.length} concluída${tasks.length !== 1 ? 's' : ''} no quadro. Clique para consultar arquivadas.`}
             >
               {tasks.length}
               <ArchiveRestore className="h-3 w-3 opacity-70" />
@@ -227,7 +229,7 @@ const KanbanColumn = ({
   );
 };
 
-const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
+const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => {
   const { updateTaskStatus, currentUser } = useApp();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
@@ -239,6 +241,14 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
   const [archiving, setArchiving] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  // Histórico paginado no diálogo; o Kanban operacional permanece intacto.
+  const archivedHistory = useArchivedTasksForBoard(
+    archiveDialogOpen,
+    [boardUserId, boardAuthUid].filter((value): value is string => Boolean(value))
+  );
 
   const normalizedTasks = useMemo(
     () =>
@@ -266,6 +276,44 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
     [normalizedTasks]
   );
 
+  const pagedArchivedTasks = useMemo(() => {
+    // Consulta somente quando o usuário abre o diálogo; desduplicamos o cache
+    // do contexto com os resultados paginados. Os registros do Firestore
+    // ainda sem data de arquivamento não são erroneamente classificados.
+    const existing = new Map(
+      archivedTasks.map((task) => [
+        task.id,
+        {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          archivedAt: task.archivedAt ? new Date(task.archivedAt) : null,
+          createdAt: task.createdAt ? new Date(task.createdAt) : null,
+          doneAt: getLastDoneAt(task),
+        },
+      ])
+    );
+    // O identificador do quadro não depende das tarefas visíveis.
+    // Um quadro vazio ainda deve localizar seu histórico arquivado.
+    const boardAssignees = new Set([boardUserId, boardAuthUid].filter(Boolean));
+    for (const item of archivedHistory.items) {
+      const belongsToBoard =
+        Boolean(item.assigneeId && boardAssignees.has(item.assigneeId)) ||
+        item.assigneeIds.some((id) => boardAssignees.has(id));
+      if (item.archivedAt && belongsToBoard && !existing.has(item.id)) {
+        existing.set(item.id, {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          archivedAt: item.archivedAt,
+          createdAt: item.createdAt,
+          doneAt: getLastDoneAt(item.task),
+        });
+      }
+    }
+    return [...existing.values()];
+  }, [archivedTasks, archivedHistory.items, boardUserId, boardAuthUid]);
+
   const userIsMotoboy =
     currentUser?.sectors?.includes('motoboys' as Sector) && currentUser?.role !== 'admin';
   const hasMotoTasks = visibleTasks.some((task) => task.sector === 'motoboys');
@@ -275,8 +323,20 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
 
   const completedTasks = visibleTasks.filter((task) => task.status === 'done');
 
+  // Filtros locais: não alteram dados ou assinaturas Firestore.
+  const filteredTasks = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase('pt-BR');
+    return visibleTasks.filter(
+      (task) =>
+        (statusFilter === 'all' || task.status === statusFilter) &&
+        (priorityFilter === 'all' || String(task.priority) === priorityFilter) &&
+        (!needle ||
+          `${task.title} ${task.description || ''}`.toLocaleLowerCase('pt-BR').includes(needle))
+    );
+  }, [visibleTasks, search, priorityFilter, statusFilter]);
+
   const getColumnTasks = (status: TaskStatus) =>
-    visibleTasks.filter((task) => task.status === status);
+    filteredTasks.filter((task) => task.status === status);
 
   const handleTaskSelection = (task: Task, event: MouseEvent<HTMLDivElement>) => {
     const withToggle = event.ctrlKey || event.metaKey;
@@ -338,6 +398,7 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
         chunk.forEach((task) => {
           batch.update(doc(db, 'tasks', task.id), {
             archived_at: now,
+            board_visible: false,
             archived_by: currentUser?.id || null,
             updated_at: now,
           });
@@ -376,6 +437,7 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
 
     try {
       await updateDoc(doc(db, 'tasks', taskId), {
+        board_visible: true,
         archived_at: deleteField(),
         archived_by: deleteField(),
         archivedAt: deleteField(),
@@ -383,6 +445,7 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
         updated_at: Timestamp.now(),
       });
 
+      archivedHistory.removeItem(taskId);
       toast.success('Tarefa restaurada para o quadro.');
     } catch (error) {
       console.error('Erro ao restaurar tarefa:', error);
@@ -393,7 +456,7 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    const task = visibleTasks.find((item) => item.id === event.active.id);
+    const task = filteredTasks.find((item) => item.id === event.active.id);
     if (!task) return;
 
     setActiveTask(task);
@@ -509,6 +572,82 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
         )}
       </div>
 
+      <div
+        className="mb-4 rounded-2xl border border-border/70 bg-muted/15 p-3 sm:p-4"
+        aria-label="Filtros de tarefas"
+      >
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+          <SlidersHorizontal className="h-4 w-4 text-primary" /> Encontrar tarefas
+          <span className="ml-auto text-xs font-normal text-muted-foreground" aria-live="polite">
+            {filteredTasks.length} de {visibleTasks.length}
+          </span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1fr)_180px_180px_auto]">
+          <label className="relative block">
+            <span className="sr-only">Buscar por título ou descrição</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar tarefa..."
+              className="pl-9"
+            />
+          </label>
+          <label className="block">
+            <span className="sr-only">Filtrar por prioridade</span>
+            <select
+              aria-label="Filtrar por prioridade"
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value)}
+              className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
+            >
+              <option value="all">Todas as prioridades</option>
+              {[...new Set(visibleTasks.map((task) => String(task.priority)))]
+                .sort()
+                .map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="sr-only">Filtrar por etapa</span>
+            <select
+              aria-label="Filtrar por etapa"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
+            >
+              <option value="all">Todas as etapas</option>
+              {columns.map((status) => (
+                <option key={status} value={status}>
+                  {STATUS_LABELS[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            disabled={!search && priorityFilter === 'all' && statusFilter === 'all'}
+            onClick={() => {
+              setSearch('');
+              setPriorityFilter('all');
+              setStatusFilter('all');
+            }}
+          >
+            Limpar filtros
+          </Button>
+        </div>
+        {filteredTasks.length === 0 && visibleTasks.length > 0 && (
+          <p role="status" className="mt-3 text-sm text-muted-foreground">
+            Nenhuma tarefa corresponde aos filtros. Limpe os filtros para ver o quadro completo.
+          </p>
+        )}
+      </div>
+
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
         <DialogContent className="max-w-2xl rounded-2xl">
           <DialogHeader>
@@ -519,12 +658,12 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
           </DialogHeader>
 
           <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
-            {archivedTasks.length === 0 ? (
+            {pagedArchivedTasks.length === 0 ? (
               <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 text-center">
                 <p className="text-sm text-muted-foreground">Nenhuma tarefa arquivada.</p>
               </div>
             ) : (
-              archivedTasks.map((task) => (
+              pagedArchivedTasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/15 p-3 sm:flex-row sm:items-center sm:justify-between"
@@ -537,8 +676,8 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span>Concluída: {formatDateTime(getLastDoneAt(task))}</span>
-                      <span>Arquivada: {formatDateTime(task.archivedAt)}</span>
+                      <span>Concluída: {formatDateTime(task.doneAt)}</span>
+                      <span>Arquivada: {formatDateTime(task.archivedAt?.toISOString())}</span>
                     </div>
                   </div>
 
@@ -560,6 +699,27 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
                 </div>
               ))
             )}
+            {archivedHistory.error && (
+              <p role="alert" className="text-xs text-destructive">
+                {archivedHistory.error}
+              </p>
+            )}
+            {archivedHistory.hasMore && (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={archivedHistory.loading}
+                onClick={() => void archivedHistory.loadMore()}
+              >
+                {archivedHistory.loading
+                  ? 'Carregando…'
+                  : 'Carregar mais tarefas do histórico (25)'}
+              </Button>
+            )}
+            <p className="text-xs text-muted-foreground">
+              A consulta busca apenas tarefas arquivadas vinculadas a este funcionário. Use Carregar
+              mais para consultar registros antigos.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
@@ -570,7 +730,7 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex items-start gap-3 overflow-x-auto pb-2 lg:grid lg:auto-rows-min lg:grid-cols-2 lg:items-start lg:overflow-visible xl:grid-cols-4">
+        <div className="flex snap-x snap-mandatory items-start gap-3 overflow-x-auto overscroll-x-contain pb-3 lg:grid lg:auto-rows-min lg:grid-cols-2 lg:items-start lg:overflow-visible xl:grid-cols-4">
           {columns.map((status) => (
             <KanbanColumn
               key={status}
@@ -579,7 +739,6 @@ const KanbanBoard = ({ tasks }: KanbanBoardProps) => {
               onTaskClick={setDetailTask}
               selectedIds={selectedIds}
               onTaskSelection={handleTaskSelection}
-              archivedCount={status === 'done' ? archivedTasks.length : 0}
               onArchivedClick={status === 'done' ? () => setArchiveDialogOpen(true) : undefined}
               onArchiveCompleted={
                 status === 'done' ? () => void handleArchiveCompleted() : undefined

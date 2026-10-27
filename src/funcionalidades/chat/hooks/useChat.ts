@@ -5,6 +5,8 @@ import {
   query,
   orderBy,
   onSnapshot,
+  getDocs,
+  startAfter,
   addDoc,
   updateDoc,
   doc,
@@ -14,6 +16,7 @@ import {
   where,
   limit,
   serverTimestamp,
+  deleteField,
   type FieldValue,
   type QueryDocumentSnapshot,
   type DocumentData,
@@ -30,6 +33,8 @@ interface MessageData {
   receiverId: string;
   timestamp: Timestamp | FieldValue;
   read: boolean;
+  read_at?: Timestamp | FieldValue | null;
+  reactions?: Record<string, string>;
   attachmentUrl?: string | null;
   attachmentType?: 'image' | 'file' | 'audio' | null;
   attachmentName?: string | null;
@@ -48,7 +53,7 @@ interface SendMessageInput {
   attachmentName?: string;
 }
 
-const MAX_MESSAGES_PER_DIRECTION = 100;
+const PAGE_SIZE = 20;
 
 function messageTime(value: unknown): number {
   if (value instanceof Timestamp) return value.toMillis();
@@ -78,6 +83,8 @@ function toChatMessage(snapshot: QueryDocumentSnapshot<DocumentData>): ChatMessa
     edited: data.edited ?? false,
     deleted: data.deleted ?? false,
     read: data.read === true,
+    readAt: data.read_at ? new Date(messageTime(data.read_at)).toISOString() : undefined,
+    reactions: data.reactions ?? {},
   };
 }
 
@@ -98,6 +105,8 @@ export const useChat = () => {
         receiverId: msg.receiverId,
         timestamp: serverTimestamp(),
         read: false,
+        read_at: null,
+        reactions: {},
         attachmentUrl: msg.attachmentUrl ?? null,
         attachmentType: msg.attachmentType ?? null,
         attachmentName: msg.attachmentName ?? null,
@@ -128,6 +137,7 @@ export const useChat = () => {
             message: `Nova mensagem recebida de ${currentUser.name || currentUser.username}`,
             type: 'chat_message',
             read: false,
+            read_at: null,
             message_id: messageRef.id,
             created_at: Timestamp.now(),
           });
@@ -137,6 +147,22 @@ export const useChat = () => {
       }
     },
     [currentUser?.id, currentUser?.name, currentUser?.username]
+  );
+
+  const reactToMessage = useCallback(
+    async (messageId: string, emoji: string | null) => {
+      if (!currentUser?.id) return;
+      const allowed = ['👍', '❤️', '😂', '😮', '🙏', '🔥'];
+      if (emoji !== null && !allowed.includes(emoji)) return;
+      try {
+        await updateDoc(doc(db, 'messages', messageId), {
+          [`reactions.${currentUser.id}`]: emoji ?? deleteField(),
+        });
+      } catch (error) {
+        console.error('Não foi possível reagir à mensagem:', error);
+      }
+    },
+    [currentUser?.id]
   );
 
   const deleteMessage = useCallback(async (messageId: string) => {
@@ -152,101 +178,120 @@ export const useChat = () => {
 
   const markMessageAsRead = useCallback(async (messageId: string) => {
     try {
-      await updateDoc(doc(db, 'messages', messageId), { read: true });
+      await updateDoc(doc(db, 'messages', messageId), { read: true, read_at: serverTimestamp() });
     } catch (error) {
       console.error('Erro ao marcar mensagem como lida:', error);
     }
   }, []);
 
+  // Abre apenas as últimas mensagens de cada direção. Histórico: páginas sob demanda.
   const getMessagesForChat = useCallback((currentUserId: string, otherUserId: string) => {
-    // Cada consulta é restrita ao par de participantes, evitando que conversas
-    // com outras pessoas consumam o limite das últimas mensagens.
-    const sentQuery = query(
-      collection(db, 'messages'),
-      where('senderId', '==', currentUserId),
-      where('receiverId', '==', otherUserId),
-      orderBy('timestamp', 'desc'),
-      limit(MAX_MESSAGES_PER_DIRECTION)
-    );
-    const receivedQuery = query(
-      collection(db, 'messages'),
-      where('senderId', '==', otherUserId),
-      where('receiverId', '==', currentUserId),
-      orderBy('timestamp', 'desc'),
-      limit(MAX_MESSAGES_PER_DIRECTION)
-    );
-
-    let sentDocs: QueryDocumentSnapshot<DocumentData>[] = [];
-    let receivedDocs: QueryDocumentSnapshot<DocumentData>[] = [];
-    let sentReady = false;
-    let receivedReady = false;
+    type Snapshot = QueryDocumentSnapshot<DocumentData>;
+    type Direction = 'sent' | 'received';
+    const base = (direction: Direction, cursor?: Snapshot) => {
+      const [sender, receiver] =
+        direction === 'sent' ? [currentUserId, otherUserId] : [otherUserId, currentUserId];
+      const constraints = [
+        where('senderId', '==', sender),
+        where('receiverId', '==', receiver),
+        orderBy('timestamp', 'desc'),
+        limit(PAGE_SIZE),
+      ];
+      return cursor
+        ? query(collection(db, 'messages'), ...constraints, startAfter(cursor))
+        : query(collection(db, 'messages'), ...constraints);
+    };
+    const history: Record<Direction, Snapshot[]> = { sent: [], received: [] };
+    const current: Record<Direction, Snapshot[]> = { sent: [], received: [] };
+    const cursor: Record<Direction, Snapshot | null> = { sent: null, received: null };
+    const exhausted: Record<Direction, boolean> = { sent: false, received: false };
+    const ready = { sent: false, received: false };
+    const pendingReads = new Set<string>();
     let active = true;
-    const readUpdatesInFlight = new Set<string>();
+    let busy = false;
 
     const publish = () => {
-      if (!active || !sentReady || !receivedReady) return;
-      const docs = new Map<string, QueryDocumentSnapshot<DocumentData>>();
-      for (const messageDoc of [...sentDocs, ...receivedDocs]) docs.set(messageDoc.id, messageDoc);
-
-      const sortedDocs = [...docs.values()].sort((a, b) => {
-        const difference = messageTime(a.data().timestamp) - messageTime(b.data().timestamp);
-        return difference || a.id.localeCompare(b.id);
-      });
-
-      const orderedMessages = sortedDocs.map(toChatMessage);
-
-      console.table(
-        orderedMessages.slice(-12).map((message, index) => ({
-          posicao: index,
-          id: message.id.slice(0, 8),
-          remetente: message.senderId,
-          horarioExato: message.timestamp,
-          conteudo: message.content.slice(0, 35),
-        }))
+      if (!active || !ready.sent || !ready.received) return;
+      const docs = new Map<string, Snapshot>();
+      for (const item of [
+        ...history.sent,
+        ...history.received,
+        ...current.sent,
+        ...current.received,
+      ]) {
+        docs.set(item.id, item);
+      }
+      setMessages(
+        [...docs.values()]
+          .sort(
+            (a, b) =>
+              messageTime(a.data().timestamp) - messageTime(b.data().timestamp) ||
+              a.id.localeCompare(b.id)
+          )
+          .map(toChatMessage)
       );
-
-      setMessages(orderedMessages);
-
-      for (const messageDoc of receivedDocs) {
-        const data = messageDoc.data() as MessageData;
-        if (data.read === true || data.deleted === true || readUpdatesInFlight.has(messageDoc.id)) {
-          continue;
-        }
-        readUpdatesInFlight.add(messageDoc.id);
-        void updateDoc(doc(db, 'messages', messageDoc.id), { read: true })
-          .catch((error) => console.warn('Falha ao marcar mensagem como lida:', error))
-          .finally(() => readUpdatesInFlight.delete(messageDoc.id));
+      for (const item of [...history.received, ...current.received]) {
+        const data = item.data() as MessageData;
+        if (data.read || data.deleted || pendingReads.has(item.id)) continue;
+        pendingReads.add(item.id);
+        void updateDoc(doc(db, 'messages', item.id), { read: true, read_at: serverTimestamp() })
+          .catch((e) => console.warn('Falha ao marcar mensagem como lida:', e))
+          .finally(() => pendingReads.delete(item.id));
       }
     };
-
-    const unsubscribeSent = onSnapshot(
-      sentQuery,
-      (snapshot) => {
-        sentDocs = snapshot.docs;
-        sentReady = true;
-        publish();
-      },
-      (error) => console.error('Erro ao carregar mensagens enviadas:', error)
+    const stops = (['sent', 'received'] as const).map((direction) =>
+      onSnapshot(
+        base(direction),
+        (snap) => {
+          current[direction] = snap.docs;
+          if (!ready[direction]) {
+            ready[direction] = true;
+            cursor[direction] = snap.docs.at(-1) ?? null;
+            exhausted[direction] = snap.size < PAGE_SIZE;
+          }
+          publish();
+        },
+        (error) => console.error('Erro ao acompanhar conversa:', error)
+      )
     );
-
-    const unsubscribeReceived = onSnapshot(
-      receivedQuery,
-      (snapshot) => {
-        receivedDocs = snapshot.docs;
-        receivedReady = true;
+    const loadOlder = async () => {
+      if (!active || busy || !ready.sent || !ready.received) return false;
+      busy = true;
+      try {
+        const directions = (['sent', 'received'] as const).filter(
+          (d) => !exhausted[d] && cursor[d]
+        );
+        if (!directions.length) return false;
+        const result = await Promise.all(
+          directions.map(async (d) => ({
+            direction: d,
+            snapshot: await getDocs(base(d, cursor[d]!)),
+          }))
+        );
+        if (!active) return false;
+        for (const { direction, snapshot } of result) {
+          history[direction] = [...history[direction], ...snapshot.docs];
+          cursor[direction] = snapshot.docs.at(-1) ?? cursor[direction];
+          exhausted[direction] = snapshot.size < PAGE_SIZE;
+        }
         publish();
-      },
-      (error) => console.error('Erro ao carregar mensagens recebidas:', error)
-    );
-
-    return () => {
-      active = false;
-      unsubscribeSent();
-      unsubscribeReceived();
+        return result.some(({ snapshot }) => !snapshot.empty);
+      } catch (error) {
+        console.error('Erro ao carregar mensagens antigas:', error);
+        return false;
+      } finally {
+        busy = false;
+      }
     };
+    const stop = () => {
+      active = false;
+      stops.forEach((unsubscribe) => unsubscribe());
+    };
+    return { stop, loadOlder };
   }, []);
 
   return {
+    reactToMessage,
     messages,
     sendMessage,
     deleteMessage,

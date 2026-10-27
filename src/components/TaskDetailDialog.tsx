@@ -960,6 +960,7 @@ const TaskDetailDialog = ({ task, open, onOpenChange }: TaskDetailDialogProps) =
                           return;
                         }
                         await addDoc(collection(db, 'tasks'), {
+                          board_visible: true,
                           title: `📄 ${task.title}`,
                           description: `Encaminhado do Financeiro.\n\n${task.description}`,
                           status: 'todo',

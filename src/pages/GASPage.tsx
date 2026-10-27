@@ -1,7 +1,19 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { collection, documentId, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  documentId,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { toast } from 'sonner';
 import { Activity, ArrowUpRight, Cloud, Database, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
   PieChart,
@@ -20,6 +32,7 @@ import {
 } from 'recharts';
 import { useApp } from '@/contexts/AppContext';
 import { useCostGuard } from '@/hooks/useCostGuard';
+import { useCompletedTaskHistory } from '@/hooks/useCompletedTaskHistory';
 import { quotaColor } from '@/components/QuotaProgress';
 import { cn } from '@/lib/utils';
 
@@ -58,10 +71,145 @@ function MetricCard({ name, value }: { name: string; value: number }) {
     </section>
   );
 }
+
+function CompletedHistoryDiagnostic() {
+  const [enabled, setEnabled] = useState(false);
+  const { items, loading, error, hasMore, loadMore } = useCompletedTaskHistory(enabled);
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+      <h2 className="text-base font-semibold">Diagnóstico: histórico de tarefas concluídas</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Consulta paginada de 25 documentos por vez, apenas ao solicitar. Esta prévia não altera os
+        quadros nem substitui o listener operacional.
+      </p>
+      {!enabled ? (
+        <button
+          className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted"
+          onClick={() => setEnabled(true)}
+        >
+          Habilitar consulta sob demanda
+        </button>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {items.length} registros carregados nesta sessão
+          </p>
+          {items.map((item) => (
+            <div key={item.id} className="rounded-lg border p-2 text-sm">
+              <span className="font-medium">{item.title || '(Sem título)'}</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {item.createdAt?.toLocaleDateString('pt-BR') || 'Sem data'}
+              </span>
+            </div>
+          ))}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          {hasMore && (
+            <button
+              disabled={loading}
+              className="rounded-xl border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              onClick={() => void loadMore()}
+            >
+              {loading
+                ? 'Carregando...'
+                : items.length
+                  ? 'Carregar mais 25'
+                  : 'Carregar primeiros 25'}
+            </button>
+          )}
+          {!hasMore && (
+            <p className="text-xs text-muted-foreground">Fim dos registros disponíveis.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FooterMessageSettings() {
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    return onSnapshot(
+      doc(db, 'app_settings', 'system_footer'),
+      (snapshot) => {
+        setMessage(typeof snapshot.data()?.message === 'string' ? snapshot.data()!.message : '');
+        setLoading(false);
+      },
+      (error) => {
+        console.warn('Falha ao ler mensagem do rodapé', error);
+        setLoading(false);
+        toast.error('Não foi possível carregar o rodapé.');
+      }
+    );
+  }, []);
+
+  async function saveMessage() {
+    const value = message.trim();
+    if (!value || value.length > 180) {
+      toast.error('Informe uma frase de 1 a 180 caracteres.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'app_settings', 'system_footer'), {
+        message: value,
+        updated_at: serverTimestamp(),
+      });
+      toast.success('Rodapé atualizado para toda a equipe.');
+    } catch (error) {
+      console.error('Falha ao salvar o rodapé:', error);
+      toast.error('Não foi possível salvar o rodapé. Verifique suas permissões.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+      <h2 className="text-base font-semibold">Mensagem do rodapé</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Esta frase aparece no rodapé de todas as páginas para os funcionários conectados.
+      </p>
+      <label htmlFor="system-footer-message" className="mt-4 block text-sm font-medium">
+        Texto do rodapé
+      </label>
+      <input
+        id="system-footer-message"
+        type="text"
+        value={message}
+        maxLength={180}
+        disabled={loading || saving}
+        onChange={(event) => setMessage(event.target.value)}
+        placeholder="Ex.: JapanFlow · Japan Imports"
+        className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-muted-foreground">{message.length}/180 caracteres</span>
+        <button
+          type="button"
+          disabled={loading || saving || !message.trim()}
+          onClick={() => void saveMessage()}
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? 'Salvando...' : 'Salvar rodapé'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function GASPage() {
   const { authenticatedUser, isActingAsTi } = useApp();
   const isTi = Boolean(
-    authenticatedUser?.username?.trim().toLowerCase() === 'japan-ti' ||
+    ['japan-ti', 'ryan', 'joe_'].includes(
+      authenticatedUser?.username?.trim().toLowerCase() || ''
+    ) ||
     (authenticatedUser?.sectors as string[] | undefined)?.includes('ti') ||
     isActingAsTi
   );
@@ -319,6 +467,8 @@ export default function GASPage() {
           </div>
         )}
       </section>
+      <FooterMessageSettings />
+      <CompletedHistoryDiagnostic />
       <p className="text-xs text-muted-foreground">
         Dados de Hosting e Storage exigem integração separada com o Cloud Monitoring. Os gráficos de
         evolução acima usam apenas amostras reais do Firestore.

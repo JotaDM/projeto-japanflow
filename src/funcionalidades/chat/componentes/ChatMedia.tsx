@@ -102,7 +102,7 @@ interface ChatAvatarProps {
 }
 
 export const ChatAvatar = ({ src, name, className }: ChatAvatarProps) => {
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(src || null);
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   const initials = useMemo(
@@ -119,16 +119,23 @@ export const ChatAvatar = ({ src, name, className }: ChatAvatarProps) => {
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
-    setResolvedSrc(src || null);
+    setResolvedSrc(null);
 
-    if (!src || (!src.startsWith('http') && !src.startsWith('attachments/'))) return;
+    if (!src) return;
+    if (!src.startsWith('http') && !src.startsWith('attachments/')) {
+      setResolvedSrc(src);
+      return;
+    }
 
     void getSignedUrl(src)
       .then((url) => {
         if (!cancelled) setResolvedSrc(url);
       })
       .catch(() => {
-        if (!cancelled) setResolvedSrc(src);
+        if (!cancelled) {
+          setResolvedSrc(null);
+          setFailed(true);
+        }
       });
 
     return () => {

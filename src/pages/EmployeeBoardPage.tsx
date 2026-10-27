@@ -6,6 +6,8 @@ import { useApp } from '@/contexts/AppContext';
 import { useTaskPermissions } from '@/hooks/useTaskPermissions';
 import { canCreateTasksForAll } from '@/lib/taskCreateAccess';
 import KanbanBoard from '@/components/KanbanBoard';
+import PickupsPanel from '@/components/PickupsPanel';
+import { canSeePickups } from '@/components/PickupsPanel';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import EmployeeCalendar from '@/components/EmployeeCalendar';
 import DailyCompletedCounter from '@/components/DailyCompletedCounter';
@@ -155,8 +157,24 @@ const EmployeeBoardPage = () => {
         </div>
       </section>
 
+      {currentUser && !employeeId && canSeePickups(currentUser) && (
+        <section className="min-w-0">
+          <PickupsPanel />
+        </section>
+      )}
+
+      {permissionsLoading && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-xl border border-border/70 bg-muted/20 px-4 py-2 text-xs text-muted-foreground animate-pulse"
+        >
+          Verificando permissões para criar tarefas…
+        </p>
+      )}
+
       <section className="min-w-0">
-        <KanbanBoard tasks={tasks} />
+        <KanbanBoard tasks={tasks} boardUserId={viewUserId} boardAuthUid={viewUser?.authUid} />
       </section>
 
       <section className="min-w-0">

@@ -45,7 +45,7 @@ const toDate = (value: Date | Timestamp | null | undefined): Date | null => {
 };
 
 export const usePresence = (userId: string | null) => {
-  const [presences, setPresences] = useState<UserPresence[]>([]);
+  const presences: UserPresence[] = [];
   const stateRef = useRef<{
     status: PresenceStatus;
     pauseType: string | null;
@@ -125,31 +125,9 @@ export const usePresence = (userId: string | null) => {
     };
   }, [currentUserId]);
 
-  useEffect(() => {
-    const presenceCollection = collection(db, 'presence');
-
-    const unsubscribe = onSnapshot(presenceCollection, (snapshot) => {
-      const currentPresences: UserPresence[] = [];
-
-      snapshot.forEach((snapshotDoc) => {
-        const data = snapshotDoc.data() as FirestorePresenceData;
-
-        currentPresences.push({
-          user_id: data.user_id ?? snapshotDoc.id,
-          status: data.status ?? 'offline',
-          pause_type: data.pause_type ?? null,
-          pause_started_at: toDate(data.pause_started_at),
-          last_seen_at: toDate(data.last_seen_at) ?? new Date(),
-        });
-      });
-
-      setPresences(currentPresences);
-      currentPresences.forEach(updateOnlineUser);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
+  // O AppLayout usa somente updatePresenceStatus. Nao assinar toda a
+  // colecao aqui: AppSidebar/TimeReports ja consultam a presenca global.
+  // A API presences permanece disponivel para compatibilidade neste hook.
   const updatePresenceStatus = useCallback(
     async (status: PresenceStatus, pauseType?: string | null) => {
       if (!currentUserId) return;

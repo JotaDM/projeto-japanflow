@@ -35,6 +35,7 @@ export const canSeePickups = (
 ) => {
   if (!user) return false;
   if (user.role === 'admin') return true;
+  if ((user.sectors || []).includes('expedicao')) return true;
 
   if ((user.sectors || []).includes('administracao')) {
     return true;

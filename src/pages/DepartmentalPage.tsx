@@ -1217,6 +1217,7 @@ const DepartmentalPage = () => {
                                   deadlineDate.setHours(23, 59, 59, 999);
                                   const notesInfo = ma.notes ? `\n${ma.notes}` : '';
                                   const taskRef = await addDoc(collection(db, 'tasks'), {
+                                    board_visible: true,
                                     title: `🏍️ Entrega: ${clientName}`,
                                     description: `${ma.description} • Cliente: ${clientName} • Local: ${location} • Valor: R$ ${rideValue.toFixed(2)}${notesInfo}`,
                                     status: 'todo',

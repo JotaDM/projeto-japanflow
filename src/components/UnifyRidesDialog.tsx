@@ -153,6 +153,7 @@ const UnifyRidesDialog = ({
         const taskStatus = statuses.length === 1 ? statuses[0] : 'todo';
 
         const newTaskRef = await addDoc(collection(db, 'tasks'), {
+          board_visible: true,
           title: `🔗 Corrida unificada (${selectedRides.length}) — ${unifiedClient.slice(0, 80) || 'Motoboy'}`,
           description: `Corrida unificada de ${selectedRides.length} entregas:\n\n${descriptions.map((d, i) => `${i + 1}. ${d}`).join('\n')}${unifiedLocation ? `\n\n📍 ${unifiedLocation}` : ''}\n\n💰 Valor: ${formatCurrency(unifiedValue)}`,
           status: taskStatus,

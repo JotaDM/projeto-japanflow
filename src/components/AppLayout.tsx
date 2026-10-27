@@ -30,6 +30,7 @@ import InventoryHeaderBanner from './InventoryHeaderBanner';
 import ForcePasswordChangeDialog from '@/components/ForcePasswordChangeDialog';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import LoginSplash from '@/components/LoginSplash';
+import SystemFooter from '@/components/SystemFooter';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -298,6 +299,7 @@ const AppLayout = () => {
               <Outlet />
             </div>
           </main>
+          <SystemFooter />
         </div>
       </div>
     </>

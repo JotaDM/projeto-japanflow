@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { useApp } from '@/contexts/AppContext';
 import {
@@ -13,6 +13,10 @@ import {
   where,
   orderBy,
   limit,
+  getDocs,
+  startAfter,
+  type QueryDocumentSnapshot,
+  type DocumentData,
 } from 'firebase/firestore';
 
 export interface GroupMessage {
@@ -81,8 +85,17 @@ export function useGroupChat(groupId: string | null) {
   const authenticatedUsername = authenticatedUser?.username ?? null;
 
   const [messages, setMessages] = useState<GroupMessage[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const cursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const olderRef = useRef<GroupMessage[]>([]);
+  const loadingRef = useRef(false);
+  const generation = useRef(0);
 
   useEffect(() => {
+    generation.current++;
+    olderRef.current = [];
+    cursorRef.current = null;
+    setHasMore(false);
     if (!groupId || !authenticatedUserId) {
       setMessages([]);
       return;
@@ -92,17 +105,19 @@ export function useGroupChat(groupId: string | null) {
       collection(db, 'group_messages'),
       where('group_id', '==', groupId),
       orderBy('created_at', 'desc'),
-      limit(100)
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(
       groupMessagesQuery,
       (snapshot) => {
-        const next = snapshot.docs
-          .map((messageDoc) => mapMessage(messageDoc.id, messageDoc.data()))
-          .sort(sortMessages);
-
-        setMessages(next);
+        if (!cursorRef.current) {
+          cursorRef.current = snapshot.docs.at(-1) ?? null;
+          setHasMore(snapshot.size === 20);
+        }
+        const merged = new Map(olderRef.current.map((item) => [item.id, item]));
+        snapshot.docs.forEach((entry) => merged.set(entry.id, mapMessage(entry.id, entry.data())));
+        setMessages([...merged.values()].sort(sortMessages));
       },
       (error) => {
         console.error('Erro ao carregar mensagens do grupo:', error);
@@ -112,6 +127,39 @@ export function useGroupChat(groupId: string | null) {
 
     return () => unsubscribe();
   }, [groupId, authenticatedUserId]);
+
+  const loadOlder = useCallback(async (): Promise<boolean> => {
+    if (!groupId || loadingRef.current || !cursorRef.current || !hasMore) return false;
+    loadingRef.current = true;
+    const request = generation.current;
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'group_messages'),
+          where('group_id', '==', groupId),
+          orderBy('created_at', 'desc'),
+          startAfter(cursorRef.current),
+          limit(20)
+        )
+      );
+      if (request !== generation.current) return false;
+      cursorRef.current = snap.docs.at(-1) ?? cursorRef.current;
+      setHasMore(snap.size === 20);
+      const merged = new Map(olderRef.current.map((item) => [item.id, item]));
+      snap.docs.forEach((entry) => merged.set(entry.id, mapMessage(entry.id, entry.data())));
+      olderRef.current = [...merged.values()];
+      setMessages((current) => {
+        const all = new Map([...olderRef.current, ...current].map((item) => [item.id, item]));
+        return [...all.values()].sort(sortMessages);
+      });
+      return !snap.empty;
+    } catch (error) {
+      console.error('Erro ao carregar mensagens antigas do grupo:', error);
+      return false;
+    } finally {
+      loadingRef.current = false;
+    }
+  }, [groupId, hasMore]);
 
   const sendMessage = useCallback(
     async (
@@ -181,6 +229,8 @@ export function useGroupChat(groupId: string | null) {
 
   return {
     messages,
+    hasMore,
+    loadOlder,
     sendMessage,
     deleteMessage,
   };

@@ -1,138 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  collection,
-  doc,
-  onSnapshot,
-  setDoc,
-  Timestamp,
-  query,
-  where,
-  limit,
-} from 'firebase/firestore';
-
+import { useCallback, useMemo } from 'react';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-
-interface GroupMessageRow {
-  id: string;
-  groupId: string;
-  senderUsername: string;
-  createdAt: string;
-  deleted: boolean;
-}
-
-const toIso = (value: any): string => {
-  if (!value) return '';
-  if (value?.toDate) return value.toDate().toISOString();
-  if (typeof value === 'string') return value;
-  return '';
-};
+import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 
 export function useGroupUnread(
   currentUserId: string | null | undefined,
   currentUsername: string | null | undefined,
   accessibleGroupIds: string[]
 ) {
-  const [messages, setMessages] = useState<GroupMessageRow[]>([]);
-  const [readStatuses, setReadStatuses] = useState<any[]>([]);
-  const groupIdsKey = accessibleGroupIds.join('|');
-
-  useEffect(() => {
-    if (!currentUserId || !groupIdsKey) {
-      setMessages([]);
-      return;
-    }
-
-    const groupIds = groupIdsKey.split('|').filter(Boolean).slice(0, 30);
-
-    const messagesQuery = query(
-      collection(db, 'group_messages'),
-      where('group_id', 'in', groupIds),
-      limit(100)
-    );
-
-    const unsubscribe = onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        setMessages(
-          snapshot.docs.map((messageDoc) => {
-            const data = messageDoc.data();
-
-            return {
-              id: messageDoc.id,
-              groupId: String(data.group_id || ''),
-              senderUsername: String(data.sender_username || ''),
-              createdAt: toIso(data.created_at),
-              deleted: data.deleted === true,
-            };
-          })
-        );
-      },
-      (error) => console.error('Erro ao acompanhar não lidas dos grupos:', error)
-    );
-
-    return () => unsubscribe();
-  }, [currentUserId, groupIdsKey]);
-
-  useEffect(() => {
-    if (!currentUserId) {
-      setReadStatuses([]);
-      return;
-    }
-
-    const readStatusQuery = query(
-      collection(db, 'chat_read_status'),
-      where('user_id', '==', currentUserId),
-      limit(100)
-    );
-
-    const unsubscribe = onSnapshot(
-      readStatusQuery,
-      (snapshot) => {
-        setReadStatuses(
-          snapshot.docs.map((statusDoc) => ({
-            id: statusDoc.id,
-            ...statusDoc.data(),
-          }))
-        );
-      },
-      (error) => console.error('Erro ao acompanhar leitura dos grupos:', error)
-    );
-
-    return () => unsubscribe();
-  }, [currentUserId]);
-
-  const unreadByGroup = useMemo(() => {
-    const result: Record<string, number> = {};
-
-    if (!currentUserId || !currentUsername) return result;
-
-    const groupIdSet = new Set(accessibleGroupIds);
-
-    const lastReadByGroup = new Map<string, string>();
-    for (const row of readStatuses) {
-      if (row.user_id !== currentUserId) continue;
-      if (!row.group_id) continue;
-      lastReadByGroup.set(String(row.group_id), toIso(row.last_read_at));
-    }
-
-    for (const message of messages) {
-      if (!groupIdSet.has(message.groupId)) continue;
-      if (message.deleted) continue;
-      if (message.senderUsername === currentUsername) continue;
-
-      const lastRead = lastReadByGroup.get(message.groupId);
-
-      if (
-        !lastRead ||
-        new Date(message.createdAt || 0).getTime() > new Date(lastRead || 0).getTime()
-      ) {
-        result[message.groupId] = (result[message.groupId] || 0) + 1;
-      }
-    }
-
-    return result;
-  }, [accessibleGroupIds, currentUserId, currentUsername, messages, readStatuses]);
-
+  const { groupById, refresh, error, loading } = useChatUnreadCounts(
+    currentUserId,
+    [],
+    accessibleGroupIds
+  );
+  const unreadByGroup = groupById;
   const totalUnread = useMemo(
     () => Object.values(unreadByGroup).reduce((sum, count) => sum + count, 0),
     [unreadByGroup]
@@ -141,23 +22,22 @@ export function useGroupUnread(
   const markGroupAsRead = useCallback(
     async (groupId: string) => {
       if (!currentUserId || !currentUsername || !groupId) return;
-
-      const statusId = `${currentUserId}__group__${groupId}`;
-
+      const now = Timestamp.now();
       await setDoc(
-        doc(db, 'chat_read_status', statusId),
+        doc(db, 'chat_read_status', `${currentUserId}__group__${groupId}`),
         {
           user_id: currentUserId,
           username: currentUsername,
           group_id: groupId,
-          last_read_at: Timestamp.now(),
-          updated_at: Timestamp.now(),
+          last_read_at: now,
+          updated_at: now,
         },
         { merge: true }
       );
+      refresh();
     },
-    [currentUserId, currentUsername]
+    [currentUserId, currentUsername, refresh]
   );
 
-  return { unreadByGroup, totalUnread, markGroupAsRead };
+  return { unreadByGroup, totalUnread, markGroupAsRead, error, loading };
 }

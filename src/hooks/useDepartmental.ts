@@ -406,6 +406,7 @@ export const useDepartmental = () => {
       const imageUrls = data.productImageUrl ? [data.productImageUrl] : [];
 
       await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: `📦 Envio Reverso: ${data.itemName}`,
         description: `Motivo: ${data.returnReason}\nItem: ${data.itemName}\nValor: R$ ${data.itemValue.toFixed(
           2
@@ -608,6 +609,7 @@ export const useDepartmental = () => {
       deadline.setHours(23, 59, 59, 999);
 
       const taskRef = await addDoc(collection(db, 'tasks'), {
+        board_visible: true,
         title: taskTitle,
         description: taskDesc,
         status: 'todo',
@@ -808,6 +810,7 @@ export const useDepartmental = () => {
         deadline.setHours(23, 59, 59, 999);
 
         const taskRef = await addDoc(collection(db, 'tasks'), {
+          board_visible: true,
           title: taskTitle,
           description: taskDesc,
           status: 'todo',

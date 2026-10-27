@@ -99,8 +99,17 @@ try {
       userA.doc(messagePath).update({ content: 'Mensagem apagada', deleted: true })
     );
   });
-  await test('Destinatário pode marcar como lida', async () => {
-    await assertSucceeds(userB.doc(messagePath).update({ read: true }));
+  await test('Destinatário não pode marcar como lida sem timestamp', async () => {
+    await assertFails(userB.doc(messagePath).update({ read: true }));
+  });
+  await test('Destinatário pode marcar como lida com timestamp do servidor', async () => {
+    const { default: firebase } = await import('firebase/compat/app');
+    await import('firebase/compat/firestore');
+    await assertSucceeds(
+      userB
+        .doc(messagePath)
+        .update({ read: true, read_at: firebase.firestore.FieldValue.serverTimestamp() })
+    );
   });
   await test('Terceiro funcionário não pode editar', async () => {
     await assertFails(
