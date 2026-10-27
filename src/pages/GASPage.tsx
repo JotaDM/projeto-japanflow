@@ -1,7 +1,19 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { collection, documentId, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  documentId,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { toast } from 'sonner';
 import { Activity, ArrowUpRight, Cloud, Database, ShieldCheck, AlertTriangle } from 'lucide-react';
 import {
   PieChart,
@@ -113,6 +125,81 @@ function CompletedHistoryDiagnostic() {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+function FooterMessageSettings() {
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    return onSnapshot(
+      doc(db, 'app_settings', 'system_footer'),
+      (snapshot) => {
+        setMessage(typeof snapshot.data()?.message === 'string' ? snapshot.data()!.message : '');
+        setLoading(false);
+      },
+      (error) => {
+        console.warn('Falha ao ler mensagem do rodapé', error);
+        setLoading(false);
+        toast.error('Não foi possível carregar o rodapé.');
+      }
+    );
+  }, []);
+
+  async function saveMessage() {
+    const value = message.trim();
+    if (!value || value.length > 180) {
+      toast.error('Informe uma frase de 1 a 180 caracteres.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'app_settings', 'system_footer'), {
+        message: value,
+        updated_at: serverTimestamp(),
+      });
+      toast.success('Rodapé atualizado para toda a equipe.');
+    } catch (error) {
+      console.error('Falha ao salvar o rodapé:', error);
+      toast.error('Não foi possível salvar o rodapé. Verifique suas permissões.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
+      <h2 className="text-base font-semibold">Mensagem do rodapé</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Esta frase aparece no rodapé de todas as páginas para os funcionários conectados.
+      </p>
+      <label htmlFor="system-footer-message" className="mt-4 block text-sm font-medium">
+        Texto do rodapé
+      </label>
+      <input
+        id="system-footer-message"
+        type="text"
+        value={message}
+        maxLength={180}
+        disabled={loading || saving}
+        onChange={(event) => setMessage(event.target.value)}
+        placeholder="Ex.: JapanFlow · Japan Imports"
+        className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-muted-foreground">{message.length}/180 caracteres</span>
+        <button
+          type="button"
+          disabled={loading || saving || !message.trim()}
+          onClick={() => void saveMessage()}
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? 'Salvando...' : 'Salvar rodapé'}
+        </button>
+      </div>
     </section>
   );
 }
@@ -380,6 +467,7 @@ export default function GASPage() {
           </div>
         )}
       </section>
+      <FooterMessageSettings />
       <CompletedHistoryDiagnostic />
       <p className="text-xs text-muted-foreground">
         Dados de Hosting e Storage exigem integração separada com o Cloud Monitoring. Os gráficos de

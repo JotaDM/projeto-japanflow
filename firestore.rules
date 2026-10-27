@@ -84,7 +84,15 @@ service cloud.firestore {
 
     match /app_settings/{docId} {
       allow read: if isActive();
-      allow write: if isAdmin();
+      // Apenas o texto do rodapé pode ser alterado pela equipe autorizada à GAS.
+      allow create, update: if docId == 'system_footer'
+        && canReadGas()
+        && request.resource.data.keys().hasOnly(['message', 'updated_at'])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 180;
+      allow create, update: if docId != 'system_footer' && isAdmin();
+      allow delete: if docId != 'system_footer' && isAdmin();
     }
 
     match /freight_destinations/{docId} {

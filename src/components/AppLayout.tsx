@@ -298,6 +298,7 @@ const AppLayout = () => {
               <Outlet />
             </div>
           </main>
+          <SystemFooter />
         </div>
       </div>
     </>
