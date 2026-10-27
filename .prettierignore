@@ -4,3 +4,4 @@ functions/
 supabase/
 dist/
 node_modules/
+tests/warranty-emulator/.local/
