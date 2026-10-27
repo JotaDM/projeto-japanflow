@@ -1,5 +1,5 @@
-import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import React, { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, afterEach, test, expect, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getBlob: vi.fn(),
@@ -66,73 +66,116 @@ const file = {
   size: 3,
   sha256: 'a'.repeat(64),
 };
+let root: Root | undefined;
+async function mount(element: React.ReactNode) {
+  const host = document.createElement('div');
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => {
+    root!.render(element);
+  });
+  return host;
+}
+function text(value: string): HTMLElement | undefined {
+  return [...document.body.querySelectorAll<HTMLElement>('*')].find(
+    (element) => element.childElementCount === 0 && element.textContent?.trim() === value
+  );
+}
+const image = () => document.querySelector<HTMLImageElement>('img[alt="comprovacao.png"]');
+const download = () => document.querySelector<HTMLAnchorElement>('a[download="comprovacao.png"]');
+
 beforeEach(() => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   mocks.getBlob.mockReset().mockResolvedValue(new Blob(['fake'], { type: 'image/png' }));
+  mocks.upload.mockReset();
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
     value: vi.fn(() => 'blob:local-test'),
   });
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
 });
-afterEach(() => cleanup());
-test('detalhe Site organiza pedido, contato, recebimento e instalação', () => {
-  render(<WarrantySiteDetails claim={{ ...mocks.claim } as any} />);
-  expect(screen.getByRole('heading', { name: 'Recebida pelo Site' })).toBeTruthy();
-  expect(screen.getByText('#0007')).toBeTruthy();
-  expect(screen.getByText('teste@example.com')).toBeTruthy();
-  expect(screen.getByText('02/01/2020')).toBeTruthy();
+afterEach(async () => {
+  if (root) {
+    await act(async () => {
+      root!.unmount();
+    });
+    root = undefined;
+  }
+  document.body.replaceChildren();
+});
+test('detalhe Site organiza pedido, contato, recebimento e instalação', async () => {
+  await mount(<WarrantySiteDetails claim={{ ...mocks.claim } as any} />);
+  expect(text('Recebida pelo Site')).toBeTruthy();
+  expect(text('#0007')).toBeTruthy();
+  expect(text('teste@example.com')).toBeTruthy();
+  expect(text('02/01/2020')).toBeTruthy();
   expect(mocks.getBlob).not.toHaveBeenCalled();
 });
-test('não adiciona seção Site em uma garantia manual', () => {
-  const { container } = render(
-    <WarrantySiteDetails claim={{ ...mocks.claim, origin: '' } as any} />
-  );
-  expect(container.innerHTML).toBe('');
+test('não adiciona seção Site em uma garantia manual', async () => {
+  const host = await mount(<WarrantySiteDetails claim={{ ...mocks.claim, origin: '' } as any} />);
+  expect(host.childElementCount).toBe(0);
   expect(mocks.getBlob).not.toHaveBeenCalled();
 });
 test('anexo privado carrega e libera URL ao desmontar', async () => {
-  const { unmount } = render(
-    <WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />
+  let resolve!: (blob: Blob) => void;
+  mocks.getBlob.mockImplementationOnce(
+    () =>
+      new Promise<Blob>((complete) => {
+        resolve = complete;
+      })
   );
-  expect(screen.getByRole('status').textContent).toContain('Carregando');
-  const image = await screen.findByRole('img', { name: 'comprovacao.png' });
-  expect(image.getAttribute('src')).toBe('blob:local-test');
+  await mount(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
+  expect(text('Carregando anexo…')).toBeTruthy();
+  await act(async () => {
+    resolve(new Blob(['fake'], { type: 'image/png' }));
+  });
+  expect(image()?.getAttribute('src')).toBe('blob:local-test');
   expect(mocks.getBlob).toHaveBeenCalledWith({ path: file.path }, 10 * 1024 * 1024);
-  expect(screen.getByRole('link', { name: 'Baixar anexo' }).getAttribute('download')).toBe(
-    'comprovacao.png'
-  );
-  unmount();
+  expect(download()?.textContent).toBe('Baixar anexo');
+  await act(async () => {
+    root!.unmount();
+  });
+  root = undefined;
   expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:local-test');
 });
 test('erro de leitura permite tentar novamente', async () => {
   mocks.getBlob.mockRejectedValueOnce(new Error('Erro fictício de leitura'));
-  render(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
-  const retry = await screen.findByRole('button', { name: 'Tentar novamente' });
-  fireEvent.click(retry);
-  expect(await screen.findByRole('img', { name: 'comprovacao.png' })).toBeTruthy();
+  await mount(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
+  const retry = text('Tentar novamente');
+  expect(retry).toBeTruthy();
+  await act(async () => {
+    retry!.click();
+  });
+  expect(image()).toBeTruthy();
   expect(mocks.getBlob).toHaveBeenCalledTimes(2);
 });
 test('formato de imagem não exibido mantém download disponível', async () => {
-  render(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
-  fireEvent.error(await screen.findByRole('img', { name: 'comprovacao.png' }));
-  expect(screen.getByText(/Prévia indisponível neste navegador/)).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Baixar anexo' })).toBeTruthy();
+  await mount(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
+  await act(async () => {
+    image()!.dispatchEvent(new Event('error', { bubbles: true }));
+  });
+  expect(text('Prévia indisponível neste navegador. Baixe o anexo para visualizar.')).toBeTruthy();
+  expect(download()).toBeTruthy();
 });
 test('caminho fora da pasta esperada não é consultado', async () => {
-  render(
+  await mount(
     <WarrantySiteDetails
       claim={{ ...mocks.claim, siteAttachments: [{ ...file, path: '../arquivo' }] } as any}
     />
   );
-  expect(await screen.findByRole('button', { name: 'Tentar novamente' })).toBeTruthy();
+  expect(text('Tentar novamente')).toBeTruthy();
   expect(mocks.getBlob).not.toHaveBeenCalled();
 });
 test('painel existente mostra Solicitante Site e abre o detalhe correto', async () => {
-  render(<WarrantiesPanel />);
-  expect(screen.getByText('Solicitante: Site')).toBeTruthy();
-  fireEvent.click(screen.getByText('Cliente Fictício React'));
-  expect(await screen.findByRole('heading', { name: 'Detalhes da Garantia' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Recebida pelo Site' })).toBeTruthy();
-  expect(screen.getByText('#0007')).toBeTruthy();
+  await mount(<WarrantiesPanel />);
+  expect(text('Solicitante: Site')).toBeTruthy();
+  const customer = text('Cliente Fictício React');
+  expect(customer).toBeTruthy();
+  await act(async () => {
+    customer!.click();
+  });
+  expect(text('Detalhes da Garantia')).toBeTruthy();
+  expect(text('Recebida pelo Site')).toBeTruthy();
+  expect(text('#0007')).toBeTruthy();
   expect(mocks.upload).not.toHaveBeenCalled();
 });
