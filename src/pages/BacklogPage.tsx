@@ -254,7 +254,7 @@ export default function BacklogPage() {
                 <img
                   src={url}
                   alt="Imagem do reporte"
-                  className="h-24 w-24 rounded-md border object-cover"
+                  className="h-12 w-12 rounded-md border object-cover"
                   loading="lazy"
                 />
               </a>
@@ -518,18 +518,22 @@ export default function BacklogPage() {
       {!announcementsLoading && !announcements.length && (
         <p className="text-sm text-muted-foreground">Nenhum aviso publicado.</p>
       )}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         {announcements.map((notice) => (
-          <Card key={notice.id}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{notice.title}</CardTitle>
+          <Card key={notice.id} className="min-w-0 overflow-hidden">
+            <CardHeader className="px-3 pb-1 pt-3">
+              <CardTitle className="line-clamp-1 text-xs">{notice.title}</CardTitle>
               <p className="text-xs text-muted-foreground">
                 {notice.created_at?.toDate?.().toLocaleString('pt-BR') || 'Sem data'} ·{' '}
                 {users.find((u) => u.id === notice.created_by)?.name || 'Ryan'}
               </p>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="whitespace-pre-wrap break-words text-sm">{notice.body}</p>
+            <CardContent className="space-y-2 px-3 pb-3">
+              <details className="group text-xs">
+                <summary className="cursor-pointer list-none whitespace-pre-wrap break-words line-clamp-2 text-muted-foreground hover:text-foreground group-open:line-clamp-none">
+                  {notice.body}
+                </summary>
+              </details>
               {!!notice.image_urls?.length && (
                 <div className="flex flex-wrap gap-2">
                   {notice.image_urls.map((url) => (
@@ -537,7 +541,7 @@ export default function BacklogPage() {
                       <img
                         src={url}
                         alt="Imagem do aviso"
-                        className="h-24 w-24 rounded-md border object-cover"
+                        className="h-12 w-12 rounded-md border object-cover"
                         loading="lazy"
                       />
                     </a>

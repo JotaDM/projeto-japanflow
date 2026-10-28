@@ -689,9 +689,12 @@ html.jf-theme-fallback #root {
 
 /* Painel direito: reserva largura sem empurrar blocos para fora da viewport. */
 @media (min-width: 1024px) {
+  .jf-workspace-shell {
+    margin-right: var(--jf-workspace-side, 0px);
+    transition: margin-right 300ms ease-in-out;
+  }
   .jf-workspace-main {
-    padding-right: calc(1.5rem + var(--jf-workspace-side, 0px));
-    transition: padding-right 200ms ease;
+    min-width: 0;
   }
 }
 
@@ -722,4 +725,24 @@ html.jf-theme-fallback #root {
   --sidebar-background: 214 70% 94%;
   --sidebar-accent: 213 75% 85%;
   --sidebar-primary: 216 90% 50%;
+}
+
+/* Rodape: a marca acompanha o tema global e o tema temporario da area TI. */
+:root[data-theme='dark'] .jf-footer-logo-light,
+:root[data-theme='mono-dark'] .jf-footer-logo-light,
+.jf-ti-dark .jf-footer-logo-light {
+  display: none;
+}
+:root[data-theme='dark'] .jf-footer-logo-dark,
+:root[data-theme='mono-dark'] .jf-footer-logo-dark,
+.jf-ti-dark .jf-footer-logo-dark {
+  display: block;
+  filter: invert(1);
+}
+/* Tema claro de TI prevalece mesmo quando o tema global e escuro. */
+.jf-ti-light .jf-footer-logo-light {
+  display: block;
+}
+.jf-ti-light .jf-footer-logo-dark {
+  display: none;
 }

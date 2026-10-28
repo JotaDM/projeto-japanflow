@@ -239,7 +239,9 @@ const AppLayout = () => {
           />
         )}
 
-        <div className="flex h-[100dvh] max-h-[100dvh] min-w-0 flex-1 flex-col">
+        <div
+          className={`flex h-[100dvh] max-h-[100dvh] min-w-0 flex-1 flex-col ${isBoardRoute ? 'jf-workspace-shell' : ''}`}
+        >
           <header
             className={`relative z-30 flex min-h-14 shrink-0 items-center gap-1.5 border-b px-2 backdrop-blur-xl sm:h-16 sm:gap-3 sm:px-3 md:px-5 ${isTiRoute ? (tiLight ? 'border-blue-200 bg-[#edf4ff] text-slate-900' : 'border-[#243554] bg-[#101c35] text-slate-100') : 'border-border/70 bg-background/85'}`}
           >

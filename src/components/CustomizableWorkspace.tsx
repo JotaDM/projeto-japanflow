@@ -39,15 +39,17 @@ export default function CustomizableWorkspace({
   const [draft, setDraft] = useState<Item[]>(defaults);
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
+  const activeSideCount = (editing ? draft : layout).filter((item) => item.slot === 'side').length;
+  const sideVisible = open && activeSideCount > 0;
   useEffect(() => {
     document.documentElement.style.setProperty(
       '--jf-workspace-side',
-      open ? 'min(350px, 36vw)' : '0px'
+      sideVisible ? 'clamp(320px, 27vw, 390px)' : '0px'
     );
     return () => {
       document.documentElement.style.removeProperty('--jf-workspace-side');
     };
-  }, [open]);
+  }, [sideVisible]);
   const [dragged, setDragged] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -113,6 +115,7 @@ export default function CustomizableWorkspace({
     toast.success('Layout original restaurado.');
   };
   const active = editing ? draft : layout;
+  const hasSidebarWidgets = active.some((item) => item.slot === 'side');
   const render = (slot: Slot) =>
     active
       .filter((x) => x.slot === slot)
@@ -207,37 +210,52 @@ export default function CustomizableWorkspace({
             </div>
           )}
         </main>
-        <aside
-          className={`fixed inset-y-0 right-0 z-40 flex max-w-[100vw] items-stretch transition-[width] duration-200 ${open ? 'w-[min(350px,90vw)]' : 'w-0'}`}
-          aria-label="Sidebar de widgets"
-        >
-          <button
-            onClick={() => setOpen(!open)}
-            className="absolute right-full top-1/2 z-50 flex h-16 w-8 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 bg-card text-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            aria-label={open ? 'Recolher painel lateral' : 'Abrir painel lateral'}
-            aria-expanded={open}
-            type="button"
-          >
-            {open ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          </button>
-          {open && (
-            <div
-              className="flex h-[100dvh] w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden border-l bg-card p-3 pt-5 shadow-2xl"
-              onDragOver={(event) => editing && event.preventDefault()}
-              onDrop={(event) => onDrop(event, 'side')}
+        {hasSidebarWidgets && (
+          <>
+            <button
+              onClick={() => setOpen((value) => !value)}
+              className={`fixed top-24 z-50 flex h-10 w-9 items-center justify-center rounded-l-xl border border-r-0 bg-card text-foreground shadow-md transition-[right,background-color] duration-300 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                sideVisible
+                  ? 'right-[min(92vw,390px)] lg:right-[clamp(320px,27vw,390px)]'
+                  : 'right-0'
+              }`}
+              aria-label={sideVisible ? 'Recolher painel lateral' : 'Abrir painel lateral'}
+              aria-expanded={sideVisible}
+              aria-controls="jf-workspace-sidepanel"
+              type="button"
             >
-              <p className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Painel lateral
-              </p>
-              <div className="min-w-0 space-y-3">{render('side')}</div>
-              {editing && (
-                <div className="mt-3 rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted-foreground">
-                  Solte widgets aqui
-                </div>
+              {sideVisible ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
               )}
-            </div>
-          )}
-        </aside>
+            </button>
+            <aside
+              id="jf-workspace-sidepanel"
+              className={`fixed inset-y-0 right-0 z-40 flex w-[min(92vw,390px)] lg:w-[clamp(320px,27vw,390px)] flex-col overflow-hidden border-l bg-card shadow-xl transition-transform duration-300 ease-in-out ${
+                sideVisible ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+              }`}
+              aria-label="Sidebar de widgets"
+              aria-hidden={!sideVisible}
+            >
+              <div
+                className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-5 pt-5"
+                onDragOver={(event) => editing && event.preventDefault()}
+                onDrop={(event) => onDrop(event, 'side')}
+              >
+                <p className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Painel lateral
+                </p>
+                <div className="min-w-0 space-y-3">{render('side')}</div>
+                {editing && (
+                  <div className="mt-3 rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted-foreground">
+                    Solte widgets aqui
+                  </div>
+                )}
+              </div>
+            </aside>
+          </>
+        )}
       </div>
     </div>
   );
