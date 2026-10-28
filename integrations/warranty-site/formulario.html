@@ -1,0 +1,315 @@
+<section class="ji-warranty-request" id="ji-garantia-solicitacao" aria-labelledby="ji-gw-title">
+  <header class="ji-gw-heading">
+    <span class="ji-gw-kicker">Vamos começar pelo que aconteceu</span>
+    <h2 id="ji-gw-title">Solicite atendimento para sua peça</h2>
+    <p>
+      Conte sobre a compra e o problema. Você pode incluir fotos, vídeos ou documentos para ajudar
+      na análise.
+    </p>
+  </header>
+  <ol class="ji-gw-steps" aria-label="Etapas da solicitação">
+    <li aria-current="step"><span>1</span>Preencher</li>
+    <li><span>2</span>Revisar</li>
+    <li><span>3</span>Enviar</li>
+  </ol>
+  <div class="ji-gw-error-summary" id="ji-gw-errors" role="alert" tabindex="-1" hidden></div>
+  <form id="ji-gw-form" novalidate aria-describedby="ji-gw-required">
+    <p class="ji-gw-required" id="ji-gw-required">
+      Campos com <span aria-hidden="true">*</span> são obrigatórios. Os demais são opcionais.
+    </p>
+    <fieldset>
+      <legend><span class="ji-gw-number">01</span> Sua compra e seu contato</legend>
+      <div class="ji-gw-grid">
+        <div class="ji-gw-field">
+          <label for="ji-gw-name">Seu nome <span aria-hidden="true">*</span></label
+          ><input
+            id="ji-gw-name"
+            name="name"
+            autocomplete="name"
+            autocapitalize="words"
+            required
+            minlength="2"
+            maxlength="120"
+            aria-describedby="ji-gw-name-error"
+            placeholder="Ex.: Ana Oliveira"
+          /><small class="ji-gw-error" id="ji-gw-name-error"></small>
+        </div>
+        <div class="ji-gw-field">
+          <label for="ji-gw-order"
+            >Número do pedido <span class="ji-gw-optional">opcional</span></label
+          >
+          <div class="ji-gw-order-wrap">
+            <span class="ji-gw-order-prefix" aria-hidden="true">#</span
+            ><input
+              id="ji-gw-order"
+              name="order"
+              maxlength="4"
+              inputmode="numeric"
+              pattern="[0-9]{4}"
+              placeholder="1234"
+              aria-describedby="ji-gw-order-error"
+              aria-label="Número do pedido, quatro números após o sinal de jogo da velha"
+            />
+          </div>
+          <small class="ji-gw-error" id="ji-gw-order-error"></small>
+        </div>
+        <div class="ji-gw-field">
+          <label for="ji-gw-channel"
+            >Como prefere receber nosso retorno? <span aria-hidden="true">*</span></label
+          >
+          <div class="ji-gw-select">
+            <select
+              id="ji-gw-channel"
+              name="channel"
+              required
+              class="is-placeholder"
+              aria-describedby="ji-gw-channel-error"
+            >
+              <option value="" selected disabled>Selecione uma opção</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="E-mail">E-mail</option></select
+            ><svg
+              class="ji-gw-select-arrow"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+          <small class="ji-gw-error" id="ji-gw-channel-error"></small>
+        </div>
+        <div class="ji-gw-field">
+          <label for="ji-gw-contact" id="ji-gw-contact-label"
+            >Seu contato <span aria-hidden="true">*</span></label
+          ><input
+            id="ji-gw-contact"
+            name="contact"
+            type="text"
+            disabled
+            autocomplete="tel"
+            inputmode="tel"
+            maxlength="180"
+            required
+            aria-describedby="ji-gw-contact-error"
+            placeholder="Selecione o canal acima"
+          /><small class="ji-gw-error" id="ji-gw-contact-error"></small>
+        </div>
+        <div class="ji-gw-field ji-gw-wide">
+          <label for="ji-gw-product">Produto adquirido <span aria-hidden="true">*</span></label
+          ><textarea
+            id="ji-gw-product"
+            name="product"
+            maxlength="500"
+            rows="2"
+            required
+            aria-describedby="ji-gw-product-error"
+            placeholder="Nome da peça, marca, código ou link do produto — informe o que tiver."
+          ></textarea
+          ><small class="ji-gw-error" id="ji-gw-product-error"></small>
+        </div>
+        <div class="ji-gw-field">
+          <label for="ji-gw-date"
+            >Quando recebeu a peça?
+            <span class="ji-gw-required-mark" aria-hidden="true">*</span></label
+          ><input id="ji-gw-date" name="received" type="date" required />
+        </div>
+        <div class="ji-gw-field">
+          <label for="ji-gw-installed"
+            >A peça foi instalada?
+            <span class="ji-gw-required-mark" aria-hidden="true">*</span></label
+          >
+          <div class="ji-gw-select">
+            <select
+              id="ji-gw-installed"
+              name="installed"
+              class="is-placeholder"
+              required
+              aria-describedby="ji-gw-installed-error"
+            >
+              <option value="" selected disabled>Selecione uma opção</option>
+              <option value="Sim">Sim</option>
+              <option value="Não">Não</option>
+              <option value="Não sei">Não sei informar</option></select
+            ><svg
+              class="ji-gw-select-arrow"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+        <div class="ji-gw-field ji-gw-wide" id="ji-gw-vehicle-field" hidden>
+          <label for="ji-gw-vehicle"
+            >Veículo e instalação <span class="ji-gw-optional">opcional</span></label
+          ><input
+            id="ji-gw-vehicle"
+            name="vehicle"
+            maxlength="220"
+            placeholder="Ex.: modelo, ano, motorização e quando instalou a peça."
+          />
+        </div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend><span class="ji-gw-number">02</span> O que aconteceu?</legend>
+      <div class="ji-gw-field">
+        <label for="ji-gw-problem">Descreva o problema <span aria-hidden="true">*</span></label
+        ><textarea
+          id="ji-gw-problem"
+          name="problem"
+          rows="4"
+          minlength="10"
+          maxlength="3000"
+          required
+          aria-describedby="ji-gw-problem-error"
+          placeholder="Conte o que aconteceu, quando começou e em quais situações aparece. Ex.: ruído, vazamento ou falha intermitente."
+        ></textarea
+        ><small class="ji-gw-error" id="ji-gw-problem-error"></small>
+      </div>
+      <div class="ji-gw-field">
+        <label for="ji-gw-notes"
+          >Quer acrescentar algo? <span class="ji-gw-optional">opcional</span></label
+        ><textarea
+          id="ji-gw-notes"
+          name="notes"
+          rows="2"
+          maxlength="1500"
+          placeholder="Acrescente outros detalhes que possam ajudar, se quiser."
+        ></textarea>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend><span class="ji-gw-number">03</span> Fotos, vídeos ou documentos</legend>
+      <p>
+        Se tiver registros do problema, inclua aqui. Você pode continuar sem anexos. Se um arquivo
+        for maior que o limite, combine o envio conosco durante o atendimento.
+      </p>
+      <div class="ji-gw-drop" id="ji-gw-drop">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          aria-hidden="true"
+        >
+          <path d="M12 16V3M7 8l5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" /></svg
+        ><label for="ji-gw-files"
+          >Adicione seus registros <span>Escolha os arquivos ou arraste para esta área</span></label
+        ><input
+          id="ji-gw-files"
+          name="files"
+          type="file"
+          multiple
+          accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.mp4,.mov,.webm"
+          aria-describedby="ji-gw-file-help ji-gw-file-status"
+        /><small id="ji-gw-file-help"
+          >Até 5 arquivos, com total de até 10 MB após a otimização. Cada arquivo deve ter até 10
+          MB. JPG, PNG, WebP, HEIC, PDF, MP4, MOV ou WebM.</small
+        >
+      </div>
+      <p id="ji-gw-file-status" class="ji-gw-file-status" role="status" aria-live="polite"></p>
+      <p class="ji-gw-compression-note">
+        Fotos compatíveis podem ser otimizadas neste dispositivo. Você pode escolher o arquivo
+        original se precisar preservar mais detalhes.
+      </p>
+      <ul id="ji-gw-file-list" class="ji-gw-file-list" aria-label="Arquivos selecionados"></ul>
+      <p class="ji-gw-safety">
+        <strong>Sua segurança vem primeiro.</strong> Não reproduza uma falha ou ligue o veículo
+        apenas para filmar se houver risco.
+      </p>
+    </fieldset>
+    <div class="ji-gw-bottom">
+      <p>
+        Usaremos estas informações para analisar sua solicitação e entrar em contato. Não envie
+        senhas ou dados completos de cartão.
+      </p>
+      <button class="ji-gw-primary" type="submit">
+        Revisar solicitação
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      </button>
+    </div>
+  </form>
+  <section id="ji-gw-review" class="ji-gw-review" aria-labelledby="ji-gw-review-title" hidden>
+    <h3 id="ji-gw-review-title" tabindex="-1">Confira antes de enviar</h3>
+    <p>Veja se as informações estão corretas. Você pode voltar e ajustar qualquer campo.</p>
+    <dl id="ji-gw-review-data"></dl>
+    <div class="ji-gw-review-actions">
+      <button type="button" id="ji-gw-edit" class="ji-gw-secondary">Voltar e editar</button
+      ><button type="button" id="ji-gw-send" class="ji-gw-primary">
+        Enviar solicitação
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          aria-hidden="true"
+        >
+          <path d="m21 3-6.5 18-4-7.5L3 9.5 21 3ZM10.5 13.5 21 3" />
+        </svg>
+      </button>
+    </div>
+  </section>
+  <section id="ji-gw-result" class="ji-gw-result" aria-labelledby="ji-gw-result-title" hidden>
+    <svg
+      width="42"
+      height="42"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m7 12 3 3 7-7" />
+    </svg>
+    <h3 id="ji-gw-result-title" tabindex="-1">Recebimento ainda não confirmado</h3>
+    <p>A confirmação e o protocolo aparecerão somente após o recebimento pelo sistema.</p>
+    <button type="button" id="ji-gw-back" class="ji-gw-secondary">Voltar à solicitação</button>
+  </section>
+  <footer class="ji-gw-help">
+    <strong>Prefere conversar antes?</strong>
+    <p>
+      Você também pode
+      <a
+        href="https://api.whatsapp.com/send?phone=5512982448222"
+        target="_blank"
+        rel="noopener noreferrer"
+        >falar pelo WhatsApp</a
+      >
+      ou escrever para
+      <a href="mailto:atendimento@japanimports.com.br">atendimento@japanimports.com.br</a>. O
+      formulário e os anexos não são obrigatórios para pedir atendimento.
+    </p>
+  </footer>
+</section>

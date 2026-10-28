@@ -51,3 +51,6 @@ exports.getChatUnreadCounts = onCall({ region: 'southamerica-east1', enforceAppC
   }));
   return { privateTotal, privateByPartner, groupById };
 });
+
+// Disabled until the site intake gates are approved.
+exports.receiveSiteWarranty = require('./siteWarrantyFirebase.cjs').receiveSiteWarranty;

@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { uploadImage } from '@/lib/uploadImage';
 import SignedLink from '@/components/SignedLink';
+import WarrantySiteDetails from '@/components/WarrantySiteDetails';
 
 const WARRANTY_STATUSES = [
   { value: 'pendente', label: 'Pendente' },
@@ -118,7 +119,10 @@ const WarrantiesPanel = () => {
   const [updateFile, setUpdateFile] = useState<File | null>(null);
   const [posting, setPosting] = useState(false);
 
-  const getName = useCallback((id: string) => users.find((u) => u.id === id)?.name || id, [users]);
+  const getName = useCallback(
+    (id: string) => (id === 'site' ? 'Site' : users.find((u) => u.id === id)?.name || id),
+    [users]
+  );
 
   const filteredClaims = useMemo(() => {
     return claims.filter((c) => {
@@ -661,6 +665,8 @@ const WarrantiesPanel = () => {
                     </div>
                   )}
                 </div>
+
+                <WarrantySiteDetails claim={selectedClaim} />
 
                 {selectedClaim.productImages?.length > 0 && (
                   <div className="space-y-1">

@@ -1,0 +1,20 @@
+{
+  "name": "japanflow-warranty-local-tests",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Only isolated local warranty validation; no deployment scripts",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:isolation": "node --test isolation.test.cjs",
+    "test:emulators": "node run.cjs"
+  },
+  "devDependencies": {
+    "firebase-tools": "15.34.1",
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0",
+    "firebase-admin": "13.5.0",
+    "firebase-functions": "6.4.0"
+  }
+}
