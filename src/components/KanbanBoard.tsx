@@ -327,14 +327,20 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
 
   // Filtros locais: não alteram dados ou assinaturas Firestore.
   const filteredTasks = useMemo(() => {
-    const needle = search.trim().toLocaleLowerCase('pt-BR');
-    return visibleTasks.filter(
-      (task) =>
+    const normalize = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('pt-BR');
+    const terms = normalize(search.trim()).split(/\s+/).filter(Boolean);
+    return visibleTasks.filter((task) => {
+      const haystack = normalize(`${task.title} ${task.description || ''}`);
+      return (
         (statusFilter === 'all' || task.status === statusFilter) &&
         (priorityFilter === 'all' || String(task.priority) === priorityFilter) &&
-        (!needle ||
-          `${task.title} ${task.description || ''}`.toLocaleLowerCase('pt-BR').includes(needle))
-    );
+        terms.every((term) => haystack.includes(term))
+      );
+    });
   }, [visibleTasks, search, priorityFilter, statusFilter]);
 
   const getColumnTasks = (status: TaskStatus) =>
