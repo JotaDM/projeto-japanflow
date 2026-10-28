@@ -92,7 +92,13 @@ const EmployeeBoardPage = () => {
               <Activity className="h-5 w-5" />
               GAS
             </Link>
-            <Link to="/sentinel" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"><ShieldAlert className="h-4 w-4"/>Sentinel</Link>
+            <Link
+              to="/sentinel"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              Sentinel
+            </Link>
           </div>
         </div>
       ) : (
@@ -159,11 +165,39 @@ const EmployeeBoardPage = () => {
         </div>
       </section>
 
-      <CustomizableWorkspace userId={viewUserId} blocks={[
-        ...(currentUser && !employeeId && canSeePickups(currentUser) ? [{ id: 'pickups', label: 'Retiradas', content: <PickupsPanel /> }] : []),
-        { id: 'tasks', label: 'Tarefas', content: <><section className="min-w-0"><KanbanBoard tasks={tasks} boardUserId={viewUserId} boardAuthUid={viewUser?.authUid} /></section></> },
-        { id: 'calendar', label: 'Calendário', content: <EmployeeCalendar userId={viewUserId} /> },
-      ]} actions={permissionsLoading && <span className="text-xs text-muted-foreground">Verificando permissões…</span>} />
+      <CustomizableWorkspace
+        userId={viewUserId}
+        blocks={[
+          ...(currentUser && !employeeId && canSeePickups(currentUser)
+            ? [{ id: 'pickups', label: 'Retiradas', content: <PickupsPanel /> }]
+            : []),
+          {
+            id: 'tasks',
+            label: 'Tarefas',
+            content: (
+              <>
+                <section className="min-w-0">
+                  <KanbanBoard
+                    tasks={tasks}
+                    boardUserId={viewUserId}
+                    boardAuthUid={viewUser?.authUid}
+                  />
+                </section>
+              </>
+            ),
+          },
+          {
+            id: 'calendar',
+            label: 'Calendário',
+            content: <EmployeeCalendar userId={viewUserId} />,
+          },
+        ]}
+        actions={
+          permissionsLoading && (
+            <span className="text-xs text-muted-foreground">Verificando permissões…</span>
+          )
+        }
+      />
     </div>
   );
 };

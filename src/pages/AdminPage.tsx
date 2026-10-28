@@ -100,11 +100,28 @@ const AdminPage = () => {
         </div>
       </section>
 
-      <CustomizableWorkspace userId={currentUser.id} blocks={[
-        { id: 'pickups', label: 'Retiradas', content: <PickupsPanel /> },
-        { id: 'tasks', label: 'Tarefas', content: <KanbanBoard tasks={tasks} boardUserId={currentUser.id} boardAuthUid={currentUser.authUid} /> },
-        { id: 'calendar', label: 'Calendário', content: <EmployeeCalendar userId={currentUser.id} /> },
-      ]} />
+      <CustomizableWorkspace
+        userId={currentUser.id}
+        blocks={[
+          { id: 'pickups', label: 'Retiradas', content: <PickupsPanel /> },
+          {
+            id: 'tasks',
+            label: 'Tarefas',
+            content: (
+              <KanbanBoard
+                tasks={tasks}
+                boardUserId={currentUser.id}
+                boardAuthUid={currentUser.authUid}
+              />
+            ),
+          },
+          {
+            id: 'calendar',
+            label: 'Calendário',
+            content: <EmployeeCalendar userId={currentUser.id} />,
+          },
+        ]}
+      />
     </div>
   );
 };

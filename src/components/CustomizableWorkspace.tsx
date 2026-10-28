@@ -1,20 +1,45 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode, DragEvent } from 'react';
-import { ChevronLeft, ChevronRight, GripVertical, LayoutDashboard, RotateCcw, Save, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  LayoutDashboard,
+  RotateCcw,
+  Save,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 type Slot = 'main' | 'side';
 type Item = { id: string; slot: Slot };
 export type WorkspaceBlock = { id: string; label: string; content: ReactNode };
 const SCHEMA = 1;
-const initial = (blocks: WorkspaceBlock[]): Item[] => blocks.map((b) => ({ id: b.id, slot: b.id === 'calendar' ? 'side' : 'main' }));
+const initial = (blocks: WorkspaceBlock[]): Item[] =>
+  blocks.map((b) => ({ id: b.id, slot: b.id === 'calendar' ? 'side' : 'main' }));
 function valid(data: unknown, blocks: WorkspaceBlock[]): data is Item[] {
   if (!Array.isArray(data) || data.length !== blocks.length) return false;
   const ids = blocks.map((b) => b.id);
-  return data.every((item) => item && typeof item.id === 'string' && ids.includes(item.id) && (item.slot === 'main' || item.slot === 'side')) && new Set(data.map((x) => x.id)).size === ids.length;
+  return (
+    data.every(
+      (item) =>
+        item &&
+        typeof item.id === 'string' &&
+        ids.includes(item.id) &&
+        (item.slot === 'main' || item.slot === 'side')
+    ) && new Set(data.map((x) => x.id)).size === ids.length
+  );
 }
 
-export default function CustomizableWorkspace({ userId, blocks, actions }: { userId: string; blocks: WorkspaceBlock[]; actions?: ReactNode }) {
+export default function CustomizableWorkspace({
+  userId,
+  blocks,
+  actions,
+}: {
+  userId: string;
+  blocks: WorkspaceBlock[];
+  actions?: ReactNode;
+}) {
   const key = `jf:workspace:v${SCHEMA}:${userId}`;
   const signature = blocks.map((block) => block.id).join('|');
   const defaults = useMemo(() => initial(blocks), [signature]);
@@ -27,8 +52,12 @@ export default function CustomizableWorkspace({ userId, blocks, actions }: { use
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(key) || 'null');
       const next = valid(saved, blocks) ? saved : initial(blocks);
-      setLayout(next); setDraft(next);
-    } catch { setLayout(initial(blocks)); setDraft(initial(blocks)); }
+      setLayout(next);
+      setDraft(next);
+    } catch {
+      setLayout(initial(blocks));
+      setDraft(initial(blocks));
+    }
     setEditing(false);
   }, [key, signature]);
   const move = (id: string, slot: Slot, before?: string) => {
@@ -51,49 +80,163 @@ export default function CustomizableWorkspace({ userId, blocks, actions }: { use
     setDragged(null);
   };
   const save = () => {
-    try { localStorage.setItem(key, JSON.stringify(draft)); setLayout(draft); setEditing(false); toast.success('Layout salvo neste navegador.'); }
-    catch { toast.error('Não foi possível salvar o layout neste navegador.'); }
+    try {
+      localStorage.setItem(key, JSON.stringify(draft));
+      setLayout(draft);
+      setEditing(false);
+      toast.success('Layout salvo neste navegador.');
+    } catch {
+      toast.error('Não foi possível salvar o layout neste navegador.');
+    }
   };
   const reset = () => {
-    try { localStorage.removeItem(key); } catch { /* armazenamento indisponível */ }
-    setDraft(defaults); setLayout(defaults); setEditing(false); setOpen(false); toast.success('Layout original restaurado.');
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* armazenamento indisponível */
+    }
+    setDraft(defaults);
+    setLayout(defaults);
+    setEditing(false);
+    setOpen(false);
+    toast.success('Layout original restaurado.');
   };
   const active = editing ? draft : layout;
-  const render = (slot: Slot) => active.filter((x) => x.slot === slot).map((item) => {
-    const block = blocks.find((b) => b.id === item.id);
-    if (!block) return null;
-    return <div key={block.id} className={`min-w-0 ${editing ? 'rounded-xl border-2 border-dashed border-primary/30 p-2' : ''}`}
-      draggable={editing} onDragStart={(event) => { setDragged(block.id); event.dataTransfer.setData('text/plain', block.id); event.dataTransfer.effectAllowed = 'move'; }}
-      onDragOver={(event) => { if (editing) event.preventDefault(); }} onDrop={(event) => onDrop(event, slot, block.id)}>
-      {editing && <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-muted px-2 py-1 text-xs">
-        <GripVertical className="h-4 w-4"/><span className="font-medium">{block.label}</span>
-        <button className="ml-auto rounded px-2 py-1 hover:bg-background" onClick={() => move(block.id, slot === 'main' ? 'side' : 'main')}>Mover para {slot === 'main' ? 'lateral' : 'quadro'}</button>
-        <button className="rounded px-2 py-1 hover:bg-background" onClick={() => move(block.id, slot)}>Último</button>
-      </div>}
-      {block.content}
-    </div>;
-  });
-  return <div className="min-w-0 space-y-4">
-    <div className="flex flex-wrap items-center justify-end gap-2">{actions}
-      {!editing ? <button className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted" onClick={() => { setDraft(layout); setEditing(true); setOpen(true); }}><LayoutDashboard className="h-4 w-4"/>Personalizar espaço</button> : <>
-        <button className="rounded-xl border px-3 py-2 text-sm" onClick={reset}><RotateCcw className="mr-1 inline h-4 w-4"/>Restaurar padrão</button>
-        <button className="rounded-xl border px-3 py-2 text-sm" onClick={() => { setDraft(layout); setEditing(false); }}><X className="mr-1 inline h-4 w-4"/>Cancelar</button>
-        <button className="rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground" onClick={save}><Save className="mr-1 inline h-4 w-4"/>Salvar layout</button>
-      </>}
+  const render = (slot: Slot) =>
+    active
+      .filter((x) => x.slot === slot)
+      .map((item) => {
+        const block = blocks.find((b) => b.id === item.id);
+        if (!block) return null;
+        return (
+          <div
+            key={block.id}
+            className={`min-w-0 ${editing ? 'rounded-xl border-2 border-dashed border-primary/30 p-2' : ''}`}
+            draggable={editing}
+            onDragStart={(event) => {
+              setDragged(block.id);
+              event.dataTransfer.setData('text/plain', block.id);
+              event.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragOver={(event) => {
+              if (editing) event.preventDefault();
+            }}
+            onDrop={(event) => onDrop(event, slot, block.id)}
+          >
+            {editing && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-muted px-2 py-1 text-xs">
+                <GripVertical className="h-4 w-4" />
+                <span className="font-medium">{block.label}</span>
+                <button
+                  className="ml-auto rounded px-2 py-1 hover:bg-background"
+                  onClick={() => move(block.id, slot === 'main' ? 'side' : 'main')}
+                >
+                  Mover para {slot === 'main' ? 'lateral' : 'quadro'}
+                </button>
+                <button
+                  className="rounded px-2 py-1 hover:bg-background"
+                  onClick={() => move(block.id, slot)}
+                >
+                  Último
+                </button>
+              </div>
+            )}
+            {block.content}
+          </div>
+        );
+      });
+  return (
+    <div className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {actions}
+        {!editing ? (
+          <button
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted"
+            onClick={() => {
+              setDraft(layout);
+              setEditing(true);
+              setOpen(true);
+            }}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Personalizar espaço
+          </button>
+        ) : (
+          <>
+            <button className="rounded-xl border px-3 py-2 text-sm" onClick={reset}>
+              <RotateCcw className="mr-1 inline h-4 w-4" />
+              Restaurar padrão
+            </button>
+            <button
+              className="rounded-xl border px-3 py-2 text-sm"
+              onClick={() => {
+                setDraft(layout);
+                setEditing(false);
+              }}
+            >
+              <X className="mr-1 inline h-4 w-4" />
+              Cancelar
+            </button>
+            <button
+              className="rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground"
+              onClick={save}
+            >
+              <Save className="mr-1 inline h-4 w-4" />
+              Salvar layout
+            </button>
+          </>
+        )}
+      </div>
+      {editing && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Arraste os blocos para reorganizar. Em telas touch, use “Mover para lateral/quadro” e
+          “Último”. As preferências ficam neste navegador.
+        </p>
+      )}
+      <div className="flex min-w-0 items-start gap-2">
+        <main
+          className="min-w-0 flex-1 space-y-4"
+          onDragOver={(event) => editing && event.preventDefault()}
+          onDrop={(event) => onDrop(event, 'main')}
+        >
+          {render('main')}
+          {editing && (
+            <div className="rounded-xl border-2 border-dashed p-4 text-center text-xs text-muted-foreground">
+              Solte aqui para enviar ao quadro principal
+            </div>
+          )}
+        </main>
+        <aside
+          className={`sticky top-20 flex shrink-0 items-start ${open ? 'w-[min(380px,42vw)]' : 'w-8'}`}
+          aria-label="Sidebar de widgets"
+        >
+          <button
+            onClick={() => setOpen(!open)}
+            className="mt-24 flex h-12 w-8 shrink-0 items-center justify-center rounded-l-xl border bg-card shadow-sm"
+            aria-label={open ? 'Recolher painel lateral' : 'Abrir painel lateral'}
+            aria-expanded={open}
+          >
+            {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+          {open && (
+            <div
+              className="max-h-[calc(100vh-7rem)] min-w-0 flex-1 space-y-3 overflow-y-auto rounded-b-xl rounded-tr-xl border bg-card/95 p-2 shadow-lg"
+              onDragOver={(event) => editing && event.preventDefault()}
+              onDrop={(event) => onDrop(event, 'side')}
+            >
+              <p className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Painel lateral
+              </p>
+              {render('side')}
+              {editing && (
+                <div className="rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted-foreground">
+                  Solte widgets aqui
+                </div>
+              )}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
-    {editing && <p role="status" className="text-xs text-muted-foreground">Arraste os blocos para reorganizar. Em telas touch, use “Mover para lateral/quadro” e “Último”. As preferências ficam neste navegador.</p>}
-    <div className="flex min-w-0 items-start gap-2">
-      <main className="min-w-0 flex-1 space-y-4" onDragOver={(event) => editing && event.preventDefault()} onDrop={(event) => onDrop(event, 'main')}>
-        {render('main')}
-        {editing && <div className="rounded-xl border-2 border-dashed p-4 text-center text-xs text-muted-foreground">Solte aqui para enviar ao quadro principal</div>}
-      </main>
-      <aside className={`sticky top-20 flex shrink-0 items-start ${open ? 'w-[min(380px,42vw)]' : 'w-8'}`} aria-label="Sidebar de widgets">
-        <button onClick={() => setOpen(!open)} className="mt-24 flex h-12 w-8 shrink-0 items-center justify-center rounded-l-xl border bg-card shadow-sm" aria-label={open ? 'Recolher painel lateral' : 'Abrir painel lateral'} aria-expanded={open}>{open ? <ChevronRight className="h-4 w-4"/> : <ChevronLeft className="h-4 w-4"/>}</button>
-        {open && <div className="max-h-[calc(100vh-7rem)] min-w-0 flex-1 space-y-3 overflow-y-auto rounded-b-xl rounded-tr-xl border bg-card/95 p-2 shadow-lg" onDragOver={(event) => editing && event.preventDefault()} onDrop={(event) => onDrop(event, 'side')}>
-          <p className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Painel lateral</p>{render('side')}
-          {editing && <div className="rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted-foreground">Solte widgets aqui</div>}
-        </div>}
-      </aside>
-    </div>
-  </div>;
+  );
 }
