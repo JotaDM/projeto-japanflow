@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import {
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  Timestamp,
-  updateDoc,
-} from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, Timestamp, updateDoc } from 'firebase/firestore';
 
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -31,11 +23,14 @@ export const canSeePickups = (
     id: string;
     role: string;
     sectors?: string[];
+    username?: string;
   } | null
 ) => {
   if (!user) return false;
-  if (user.role === 'admin') return true;
-  if ((user.sectors || []).includes('expedicao')) return true;
+  const username = (user.username || '').trim().toLowerCase();
+  const sectors = (user.sectors || []).map((sector) => sector.toLowerCase());
+  if (user.role === 'admin' || ['jean_', 'joe_'].includes(username)) return true;
+  if (sectors.includes('vendas') || sectors.includes('expedicao')) return true;
 
   if ((user.sectors || []).includes('administracao')) {
     return true;
@@ -59,15 +54,23 @@ interface PickupRow {
 }
 
 interface PickupFirestore {
+  order_title?: string;
   orderTitle?: string;
+  delivery_type?: string;
   deliveryType?: string;
+  carrier_name?: string | null;
   carrierName?: string | null;
   details?: string | null;
+  created_by?: string;
   createdBy?: string;
   status?: string;
+  completed_at?: Timestamp | null;
   completedAt?: Timestamp | null;
+  completed_by?: string | null;
   completedBy?: string | null;
+  completed_by_name?: string | null;
   completedByName?: string | null;
+  created_at?: Timestamp;
   createdAt?: Timestamp;
 }
 
@@ -88,7 +91,7 @@ const PickupsPanel = () => {
       return;
     }
 
-    const pickupsQuery = query(collection(db, 'pickups'), orderBy('createdAt', 'desc'));
+    const pickupsQuery = query(collection(db, 'pickups'));
 
     const unsubscribe = onSnapshot(
       pickupsQuery,
@@ -99,31 +102,30 @@ const PickupsPanel = () => {
           return {
             id: pickupDoc.id,
 
-            order_title: data.orderTitle || '',
+            order_title: data.order_title || data.orderTitle || '',
 
-            delivery_type: data.deliveryType || 'balcao',
+            delivery_type: data.delivery_type || data.deliveryType || 'balcao',
 
-            carrier_name: data.carrierName || null,
+            carrier_name: data.carrier_name || data.carrierName || null,
 
             details: data.details || null,
 
-            created_by: data.createdBy || '',
+            created_by: data.created_by || data.createdBy || '',
 
             status: data.status || 'pending',
 
-            completed_at: data.completedAt?.toDate ? data.completedAt.toDate().toISOString() : null,
+            completed_at:
+              (data.completed_at || data.completedAt)?.toDate?.()?.toISOString() || null,
 
-            completed_by: data.completedBy || null,
+            completed_by: data.completed_by || data.completedBy || null,
 
-            completed_by_name: data.completedByName || null,
+            completed_by_name: data.completed_by_name || data.completedByName || null,
 
-            created_at: data.createdAt?.toDate
-              ? data.createdAt.toDate().toISOString()
-              : new Date().toISOString(),
+            created_at: (data.created_at || data.createdAt)?.toDate?.()?.toISOString() || '',
           };
         });
 
-        setPickups(nextPickups);
+        setPickups(nextPickups.sort((x, y) => y.created_at.localeCompare(x.created_at)));
         setPickupError(null);
       },
       (error) => {
@@ -166,9 +168,9 @@ const PickupsPanel = () => {
     try {
       await updateDoc(doc(db, 'pickups', id), {
         status: 'done',
-        completedAt,
-        completedBy: currentUser.id,
-        completedByName: currentUser.name,
+        completed_at: completedAt,
+        completed_by: currentUser.id,
+        completed_by_name: currentUser.name,
       });
 
       toast.success('Retirada concluída');
@@ -183,9 +185,9 @@ const PickupsPanel = () => {
     try {
       await updateDoc(doc(db, 'pickups', id), {
         status: 'pending',
-        completedAt: null,
-        completedBy: null,
-        completedByName: null,
+        completed_at: null,
+        completed_by: null,
+        completed_by_name: null,
       });
 
       toast.success('Retirada revertida para pendente');
