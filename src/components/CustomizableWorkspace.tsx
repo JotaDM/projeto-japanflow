@@ -44,7 +44,9 @@ export default function CustomizableWorkspace({
       '--jf-workspace-side',
       open ? 'min(350px, 36vw)' : '0px'
     );
-    return () => document.documentElement.style.removeProperty('--jf-workspace-side');
+    return () => {
+      document.documentElement.style.removeProperty('--jf-workspace-side');
+    };
   }, [open]);
   const [dragged, setDragged] = useState<string | null>(null);
   useEffect(() => {
@@ -83,6 +85,7 @@ export default function CustomizableWorkspace({
   const onDrop = (event: DragEvent, slot: Slot, before?: string) => {
     if (!editing) return;
     event.preventDefault();
+    event.stopPropagation();
     const id = event.dataTransfer.getData('text/plain') || dragged;
     if (id) move(id, slot, before);
     setDragged(null);
@@ -123,6 +126,7 @@ export default function CustomizableWorkspace({
             draggable={editing}
             onDragStart={(event) => {
               setDragged(block.id);
+              event.stopPropagation();
               event.dataTransfer.setData('text/plain', block.id);
               event.dataTransfer.effectAllowed = 'move';
             }}
@@ -130,6 +134,7 @@ export default function CustomizableWorkspace({
               if (editing) event.preventDefault();
             }}
             onDrop={(event) => onDrop(event, slot, block.id)}
+            onDragEnd={() => setDragged(null)}
           >
             {editing && (
               <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-muted px-2 py-1 text-xs">
