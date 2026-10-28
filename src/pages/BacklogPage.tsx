@@ -301,7 +301,7 @@ export default function BacklogPage() {
 
   return (
     <section
-      className={`space-y-5 rounded-2xl p-3 sm:p-5 transition-colors ${tiLight ? 'bg-[#edf4ff] text-slate-900' : 'bg-[#090f23] text-slate-100'}`}
+      className={`min-h-full space-y-5 p-2 sm:p-4 transition-colors ${tiLight ? 'text-slate-900' : 'text-slate-100'}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -321,6 +321,7 @@ export default function BacklogPage() {
             const value = !tiLight;
             setTiLight(value);
             localStorage.setItem('jf:ti-theme', value ? 'light' : 'dark');
+            window.dispatchEvent(new Event('jf:ti-theme-change'));
           }}
         >
           {tiLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}

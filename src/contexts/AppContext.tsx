@@ -246,7 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'done'), [tasks]);
   const firebaseCalendar = useFirebaseCalendar(dataEnabled && !isProtectedMode);
   const calendarEvents = firebaseCalendar.events;
-  const firebaseNotifications = useFirebaseNotifications(dataEnabled, authenticatedUser?.id);
+  const firebaseNotifications = useFirebaseNotifications(dataEnabled, currentUser?.id);
   const notifications = firebaseNotifications.notifications;
   const prevNotifCount = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);

@@ -39,6 +39,13 @@ export default function CustomizableWorkspace({
   const [draft, setDraft] = useState<Item[]>(defaults);
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--jf-workspace-side',
+      open ? 'min(350px, 36vw)' : '0px'
+    );
+    return () => document.documentElement.style.removeProperty('--jf-workspace-side');
+  }, [open]);
   const [dragged, setDragged] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -147,7 +154,7 @@ export default function CustomizableWorkspace({
         );
       });
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
         {actions}
         {editing && (
@@ -182,7 +189,7 @@ export default function CustomizableWorkspace({
           “Último”. As preferências ficam neste navegador.
         </p>
       )}
-      <div className="flex min-w-0 items-start gap-2">
+      <div className="min-w-0">
         <main
           className="min-w-0 flex-1 space-y-4"
           onDragOver={(event) => editing && event.preventDefault()}
@@ -196,29 +203,30 @@ export default function CustomizableWorkspace({
           )}
         </main>
         <aside
-          className={`sticky top-20 flex shrink-0 items-start ${open ? 'w-[min(380px,42vw)]' : 'w-8'}`}
+          className={`fixed inset-y-0 right-0 z-40 flex max-w-[100vw] items-stretch transition-[width] duration-200 ${open ? 'w-[min(350px,90vw)]' : 'w-0'}`}
           aria-label="Sidebar de widgets"
         >
           <button
             onClick={() => setOpen(!open)}
-            className="mt-24 flex h-12 w-8 shrink-0 items-center justify-center rounded-l-xl border bg-card shadow-sm"
+            className="absolute right-full top-1/2 z-50 flex h-16 w-8 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 bg-card text-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             aria-label={open ? 'Recolher painel lateral' : 'Abrir painel lateral'}
             aria-expanded={open}
+            type="button"
           >
-            {open ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {open ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </button>
           {open && (
             <div
-              className="max-h-[calc(100vh-7rem)] min-w-0 flex-1 space-y-3 overflow-y-auto rounded-b-xl rounded-tr-xl border bg-card/95 p-2 shadow-lg"
+              className="flex h-[100dvh] w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden border-l bg-card p-3 pt-5 shadow-2xl"
               onDragOver={(event) => editing && event.preventDefault()}
               onDrop={(event) => onDrop(event, 'side')}
             >
-              <p className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Painel lateral
               </p>
-              {render('side')}
+              <div className="min-w-0 space-y-3">{render('side')}</div>
               {editing && (
-                <div className="rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted-foreground">
+                <div className="mt-3 rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted-foreground">
                   Solte widgets aqui
                 </div>
               )}

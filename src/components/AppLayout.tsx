@@ -108,6 +108,17 @@ const AppLayout = () => {
   });
 
   const isChatRoute = location.pathname === '/chat';
+  const canViewTi = ['ryan', 'japan-ti'].includes(
+    authenticatedUser?.username?.trim().toLowerCase() || ''
+  );
+  const isTiRoute =
+    canViewTi && (location.pathname === '/backlog' || location.pathname === '/sentinel');
+  const [tiLight, setTiLight] = useState(() => localStorage.getItem('jf:ti-theme') === 'light');
+  useEffect(() => {
+    const sync = () => setTiLight(localStorage.getItem('jf:ti-theme') === 'light');
+    window.addEventListener('jf:ti-theme-change', sync);
+    return () => window.removeEventListener('jf:ti-theme-change', sync);
+  }, []);
   const isBoardRoute =
     location.pathname === '/admin' ||
     location.pathname === '/board' ||
@@ -122,7 +133,7 @@ const AppLayout = () => {
 
   const unreadNotifs = currentUser
     ? notifications.filter(
-        (notification) => notification.userId === authenticatedUser?.id && !notification.read
+        (notification) => notification.userId === currentUser.id && !notification.read
       ).length
     : 0;
 
@@ -216,7 +227,9 @@ const AppLayout = () => {
       <AutoVersionRefresh />
       <ForcePasswordChangeDialog />
 
-      <div className="flex min-h-[100dvh] overflow-hidden bg-background">
+      <div
+        className={`flex min-h-[100dvh] overflow-hidden ${isTiRoute ? (tiLight ? 'jf-ti-light bg-[#e7f0fd]' : 'jf-ti-dark bg-[#080f20]') : 'bg-background'}`}
+      >
         {!isMobile && (
           <AppSidebar
             collapsed={sidebarCollapsed}
@@ -227,7 +240,9 @@ const AppLayout = () => {
         )}
 
         <div className="flex h-[100dvh] max-h-[100dvh] min-w-0 flex-1 flex-col">
-          <header className="relative z-30 flex min-h-14 shrink-0 items-center gap-1.5 border-b border-border/70 bg-background/85 px-2 backdrop-blur-xl sm:h-16 sm:gap-3 sm:px-3 md:px-5">
+          <header
+            className={`relative z-30 flex min-h-14 shrink-0 items-center gap-1.5 border-b px-2 backdrop-blur-xl sm:h-16 sm:gap-3 sm:px-3 md:px-5 ${isTiRoute ? (tiLight ? 'border-blue-200 bg-[#edf4ff] text-slate-900' : 'border-[#243554] bg-[#101c35] text-slate-100') : 'border-border/70 bg-background/85'}`}
+          >
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               {isMobile && (
                 <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -253,10 +268,10 @@ const AppLayout = () => {
               )}
 
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold leading-none text-foreground md:text-base">
+                <p className="truncate text-sm font-semibold leading-none md:text-base">
                   {pageTitle}
                 </p>
-                <p className="mt-1 hidden truncate text-[11px] text-muted-foreground sm:block">
+                <p className="mt-1 hidden truncate text-[11px] opacity-60 sm:block">
                   JapanFlow · Japan Imports
                 </p>
               </div>
@@ -295,7 +310,7 @@ const AppLayout = () => {
             className={
               isChatRoute
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden p-1.5 sm:p-2 md:p-3'
-                : 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-5 lg:p-6'
+                : `min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-5 lg:p-6 ${isBoardRoute ? 'jf-workspace-main' : ''} ${isTiRoute ? (tiLight ? 'bg-[#e7f0fd]' : 'bg-[#080f20]') : ''}`
             }
           >
             <div
@@ -306,7 +321,9 @@ const AppLayout = () => {
                     ? `mx-auto min-h-full w-full min-w-0 animate-fade-up transition-[max-width] duration-300 ${
                         !isMobile && sidebarCollapsed ? 'max-w-[1760px]' : 'max-w-[1480px]'
                       }`
-                    : 'mx-auto min-h-full w-full min-w-0 max-w-6xl animate-fade-up'
+                    : isTiRoute
+                      ? 'min-h-full w-full min-w-0 animate-fade-up'
+                      : 'mx-auto min-h-full w-full min-w-0 max-w-6xl animate-fade-up'
               }
             >
               <Outlet />

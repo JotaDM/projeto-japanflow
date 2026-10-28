@@ -686,3 +686,40 @@ html.jf-theme-fallback #root {
     --shadow-floating: 0 18px 50px rgba(0, 0, 0, 0.45);
   }
 }
+
+/* Painel direito: reserva largura sem empurrar blocos para fora da viewport. */
+@media (min-width: 1024px) {
+  .jf-workspace-main {
+    padding-right: calc(1.5rem + var(--jf-workspace-side, 0px));
+    transition: padding-right 200ms ease;
+  }
+}
+
+/* TI é um espaço visual distinto: o tema se aplica ao sistema apenas nesta rota. */
+.jf-ti-dark {
+  color: #e2e8f0;
+}
+.jf-ti-dark .sidebar-gradient {
+  background: #101b32;
+  color: #e2e8f0;
+  --sidebar-foreground: 215 30% 92%;
+  --sidebar-background: 221 47% 13%;
+  --sidebar-accent: 220 42% 22%;
+  --sidebar-primary: 215 92% 55%;
+}
+.jf-ti-dark #main-content .bg-card,
+.jf-ti-dark #main-content [class~='bg-card'] {
+  background-color: #15243d;
+  color: #e2e8f0;
+  border-color: #334765;
+}
+.jf-ti-dark #main-content .text-muted-foreground {
+  color: #a8bad1;
+}
+.jf-ti-light .sidebar-gradient {
+  background: #dceafa;
+  --sidebar-foreground: 221 45% 20%;
+  --sidebar-background: 214 70% 94%;
+  --sidebar-accent: 213 75% 85%;
+  --sidebar-primary: 216 90% 50%;
+}
