@@ -21,7 +21,7 @@ if (root) {
         ]);
         const app = appSDK.initializeApp(config.firebasePublicConfig, 'ji-warranty-public');
         checkSDK.initializeAppCheck(app, {
-          provider: new checkSDK.ReCaptchaV3Provider(config.recaptchaSiteKey),
+          provider: new checkSDK.ReCaptchaEnterpriseProvider(config.recaptchaSiteKey),
           isTokenAutoRefreshEnabled: true,
         });
         const callable = functionSDK.httpsCallable(
