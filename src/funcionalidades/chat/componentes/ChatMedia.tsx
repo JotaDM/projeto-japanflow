@@ -14,6 +14,7 @@ export const SafeChatImage = ({ src, alt, className, onClick }: SafeChatImagePro
   const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +53,7 @@ export const SafeChatImage = ({ src, alt, className, onClick }: SafeChatImagePro
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, retry]);
 
   if (loading) {
     return (
@@ -78,6 +79,15 @@ export const SafeChatImage = ({ src, alt, className, onClick }: SafeChatImagePro
         <div className="flex flex-col items-center gap-1.5 px-3 py-4 text-center">
           <ImageOff className="h-5 w-5 opacity-60" />
           <span className="text-[10px]">Imagem indisponível</span>
+          {src && (
+            <button
+              type="button"
+              className="text-xs underline focus-visible:outline focus-visible:outline-2"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              Tentar novamente
+            </button>
+          )}
         </div>
       </div>
     );

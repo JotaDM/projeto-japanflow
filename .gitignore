@@ -58,3 +58,5 @@ auth-users.json
 .env.qa
 /local-backups/
 qa/.auth/
+.env.japanflow-erp
+ji-garantia-config.js

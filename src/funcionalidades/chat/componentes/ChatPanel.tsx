@@ -35,19 +35,25 @@ interface ChatPanelProps {
 
 const SecureAttachment = ({ src, name }: { src: string; name: string }) => {
   const [href, setHref] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
+    setHref(null);
+    setFailed(false);
     void getSignedUrl(src)
       .then((url) => {
-        if (active) setHref(url);
+        if (!active) return;
+        if (url) setHref(url);
+        else setFailed(true);
       })
       .catch(() => {
-        if (active) setHref(null);
+        if (active) setFailed(true);
       });
     return () => {
       active = false;
     };
-  }, [src]);
+  }, [src, retry]);
   return href ? (
     <a
       href={href}
@@ -58,8 +64,17 @@ const SecureAttachment = ({ src, name }: { src: string; name: string }) => {
       <FileText className="h-4 w-4 shrink-0" />
       {name}
     </a>
+  ) : failed ? (
+    <span role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
+      Arquivo indisponível.
+      <button type="button" className="underline" onClick={() => setRetry((value) => value + 1)}>
+        Tentar novamente
+      </button>
+    </span>
   ) : (
-    <span className="text-xs">Carregando arquivo protegido...</span>
+    <span role="status" className="text-xs">
+      Carregando arquivo protegido...
+    </span>
   );
 };
 
@@ -114,6 +129,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [partnerOnline, setPartnerOnline] = useState(false);
+  const [partnerLastSeen, setPartnerLastSeen] = useState<number | null>(null);
   useEffect(() => {
     const stop = onSnapshot(
       doc(db, 'presence', otherUser.id),
@@ -122,6 +138,7 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
         const last = data?.last_seen_at;
         const ms =
           typeof last?.toMillis === 'function' ? last.toMillis() : Date.parse(String(last ?? ''));
+        setPartnerLastSeen(Number.isFinite(ms) && ms > 0 ? ms : null);
         setPartnerOnline(
           data?.status === 'online' && Number.isFinite(ms) && Date.now() - ms < 90_000
         );
@@ -845,7 +862,12 @@ const ChatPanel = ({ otherUser }: ChatPanelProps) => {
             </p>
           ) : (
             <p className="truncate text-[11px] text-muted-foreground">
-              {partnerOnline ? 'Online' : 'Offline'} · @{otherUser.username}
+              {partnerOnline
+                ? 'Online'
+                : partnerLastSeen
+                  ? `Última atividade: ${new Date(partnerLastSeen).toLocaleString('pt-BR')}`
+                  : 'Offline'}{' '}
+              · @{otherUser.username}
             </p>
           )}
         </div>

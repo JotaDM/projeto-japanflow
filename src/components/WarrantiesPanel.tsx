@@ -80,7 +80,8 @@ const uploadFile = async (
 
 const WarrantiesPanel = () => {
   const { currentUser, users } = useApp();
-  const { claims, updates, createClaim, updateClaimStatus, addUpdate } = useWarranties();
+  const { claims, updates, claimsError, updatesError, createClaim, updateClaimStatus, addUpdate } =
+    useWarranties();
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<WarrantyClaim | null>(null);
@@ -293,6 +294,22 @@ const WarrantiesPanel = () => {
 
   return (
     <div className="space-y-3">
+      {claimsError && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
+        >
+          {claimsError}
+        </p>
+      )}
+      {updatesError && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
+        >
+          {updatesError}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="w-3 h-3 mr-1" />
@@ -343,11 +360,11 @@ const WarrantiesPanel = () => {
       </div>
 
       {/* Lista */}
-      {filteredClaims.length === 0 ? (
+      {!claimsError && filteredClaims.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">
           Nenhum pedido de garantia encontrado
         </p>
-      ) : (
+      ) : claimsError ? null : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {filteredClaims.map((c) => (
             <div

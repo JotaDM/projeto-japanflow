@@ -166,6 +166,21 @@ test('caminho fora da pasta esperada não é consultado', async () => {
   expect(text('Tentar novamente')).toBeTruthy();
   expect(mocks.getBlob).not.toHaveBeenCalled();
 });
+
+test('falha de permissão mantém anexo privado indisponível e não oferece download', async () => {
+  mocks.getBlob.mockRejectedValueOnce(new Error('storage/unauthorized'));
+  await mount(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
+  expect(text('Tentar novamente')).toBeTruthy();
+  expect(download()).toBeFalsy();
+  expect(image()).toBeFalsy();
+});
+test('anexo privado não gera URL sem sucesso de leitura', async () => {
+  mocks.getBlob.mockRejectedValueOnce(new Error('storage/object-not-found'));
+  await mount(<WarrantySiteDetails claim={{ ...mocks.claim, siteAttachments: [file] } as any} />);
+  expect(URL.createObjectURL).not.toHaveBeenCalled();
+  expect(download()).toBeFalsy();
+});
+
 test('painel existente mostra Solicitante Site e abre o detalhe correto', async () => {
   await mount(<WarrantiesPanel />);
   expect(text('Solicitante: Site')).toBeTruthy();

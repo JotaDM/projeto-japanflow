@@ -109,22 +109,40 @@ const mapUpdate = (id: string, data: any): WarrantyUpdate => ({
 export const useWarranties = () => {
   const [claims, setClaims] = useState<WarrantyClaim[]>([]);
   const [updates, setUpdates] = useState<WarrantyUpdate[]>([]);
+  const [claimsError, setClaimsError] = useState<string | null>(null);
+  const [updatesError, setUpdatesError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribeClaims = onSnapshot(
       query(collection(db, 'warranty_claims'), orderBy('created_at', 'desc')),
       (snapshot) => {
         setClaims(snapshot.docs.map((claimDoc) => mapClaim(claimDoc.id, claimDoc.data())));
+        setClaimsError(null);
       },
-      (error) => console.error('Erro ao carregar garantias:', error)
+      (error) => {
+        console.error('Erro ao carregar garantias:', error);
+        setClaimsError(
+          error.code === 'permission-denied'
+            ? 'Permissão insuficiente para consultar garantias.'
+            : 'Falha ao consultar garantias. Tente atualizar a página.'
+        );
+      }
     );
 
     const unsubscribeUpdates = onSnapshot(
       query(collection(db, 'warranty_updates'), orderBy('created_at', 'asc')),
       (snapshot) => {
         setUpdates(snapshot.docs.map((updateDoc) => mapUpdate(updateDoc.id, updateDoc.data())));
+        setUpdatesError(null);
       },
-      (error) => console.error('Erro ao carregar atualizações de garantia:', error)
+      (error) => {
+        console.error('Erro ao carregar atualizações de garantia:', error);
+        setUpdatesError(
+          error.code === 'permission-denied'
+            ? 'Permissão insuficiente para consultar o histórico de garantias.'
+            : 'Falha ao consultar o histórico de garantias. Tente atualizar a página.'
+        );
+      }
     );
 
     return () => {
@@ -214,6 +232,8 @@ export const useWarranties = () => {
   return {
     claims,
     updates,
+    claimsError,
+    updatesError,
     createClaim,
     updateClaimStatus,
     addUpdate,

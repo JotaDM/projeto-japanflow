@@ -35,6 +35,7 @@ function SiteAttachment({ file }: { file: NonNullable<WarrantyClaim['siteAttachm
   return (
     <div className="rounded border border-border p-3 space-y-2 min-w-0">
       <p className="text-sm break-all">{file.name}</p>
+      <p className="text-xs text-muted-foreground">Anexo privado · acesso autenticado</p>
       {failed ? (
         <p role="status" className="text-sm">
           Não foi possível carregar.
