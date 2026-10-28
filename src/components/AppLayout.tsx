@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { LayoutDashboard, Menu } from 'lucide-react';
 
 import { useApp } from '@/contexts/AppContext';
 import { usePresence } from '@/hooks/usePresence';
@@ -46,7 +46,7 @@ const pageTitles: Record<string, string> = {
   '/admin': 'Meu Quadro',
   '/admin/monitor': 'Monitoria',
   '/gas': 'Gestão de Análise do Sistema',
-  '/backlog': 'Backlog',
+  '/backlog': 'TI',
   '/board': 'Meu Quadro',
   '/chat': 'Chat',
   '/corporate': 'Corporativo',
@@ -265,6 +265,17 @@ const AppLayout = () => {
             <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 sm:gap-2">
               <RyanAnnouncements />
               <ReportProblemButton />
+              {isBoardRoute && (
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium hover:bg-muted sm:text-sm"
+                  onClick={() => window.dispatchEvent(new CustomEvent('jf:workspace:customize'))}
+                  aria-label="Personalizar espaço"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  <span className="hidden sm:inline">Personalizar espaço</span>
+                </button>
+              )}
             </div>
             <div className="mx-auto hidden min-w-0 flex-1 justify-center px-4 lg:flex">
               <div className="max-w-xl overflow-hidden">
@@ -275,7 +286,7 @@ const AppLayout = () => {
             <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 md:gap-1.5">
               <PauseButton updatePresence={updatePresenceStatus} />
               <ThemeSwitcher />
-              <NotificationBell />
+              {(isMobile || !sidebarCollapsed) && <NotificationBell />}
             </div>
           </header>
 
@@ -300,8 +311,8 @@ const AppLayout = () => {
             >
               <Outlet />
             </div>
+            {!isChatRoute && <SystemFooter />}
           </main>
-          <SystemFooter />
         </div>
       </div>
     </>

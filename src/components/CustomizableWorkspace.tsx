@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode, DragEvent } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  GripVertical,
-  LayoutDashboard,
-  RotateCcw,
-  Save,
-  X,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, GripVertical, RotateCcw, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Slot = 'main' | 'side';
@@ -60,6 +52,15 @@ export default function CustomizableWorkspace({
     }
     setEditing(false);
   }, [key, signature]);
+  useEffect(() => {
+    const start = () => {
+      setDraft(layout);
+      setEditing(true);
+      setOpen(true);
+    };
+    window.addEventListener('jf:workspace:customize', start);
+    return () => window.removeEventListener('jf:workspace:customize', start);
+  }, [layout]);
   const move = (id: string, slot: Slot, before?: string) => {
     setDraft((old) => {
       const item = old.find((x) => x.id === id);
@@ -149,19 +150,7 @@ export default function CustomizableWorkspace({
     <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
         {actions}
-        {!editing ? (
-          <button
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted"
-            onClick={() => {
-              setDraft(layout);
-              setEditing(true);
-              setOpen(true);
-            }}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Personalizar espaço
-          </button>
-        ) : (
+        {editing && (
           <>
             <button className="rounded-xl border px-3 py-2 text-sm" onClick={reset}>
               <RotateCcw className="mr-1 inline h-4 w-4" />

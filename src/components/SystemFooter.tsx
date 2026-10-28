@@ -23,10 +23,18 @@ export default function SystemFooter() {
 
   return (
     <footer
-      className="shrink-0 border-t border-border/60 bg-background px-4 py-2 text-center text-xs text-muted-foreground"
+      className="mt-10 border-t border-border/60 bg-card/70 px-5 py-5 text-xs text-muted-foreground"
       aria-label="Rodapé do sistema"
     >
-      <p className="break-words">{message}</p>
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 text-center sm:flex-row sm:text-left">
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="font-semibold text-foreground">JapanFlow</span>
+          <span className="text-border">·</span>
+          <span>{message}</span>
+        </div>
+        <span>© {new Date().getFullYear()} Japan Imports · Ambiente interno</span>
+      </div>
     </footer>
   );
 }

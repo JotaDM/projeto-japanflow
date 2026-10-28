@@ -19,6 +19,14 @@ import {
   Download,
   History,
   Sparkles,
+  Zap,
+  Sun,
+  Moon,
+  ShieldCheck,
+  AlertTriangle,
+  Database,
+  Activity,
+  ArrowUpRight,
   MessageSquareReply,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
@@ -35,6 +43,8 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
+import { useCostGuard } from '@/hooks/useCostGuard';
 
 type Announcement = {
   id: string;
@@ -59,6 +69,8 @@ export default function BacklogPage() {
   const { authenticatedUser, users } = useApp();
   const user = authenticatedUser;
   const authorized = ['ryan', 'japan-ti'].includes(user?.username?.trim().toLowerCase() || '');
+  const guard = useCostGuard(authorized);
+  const [tiLight, setTiLight] = useState(() => localStorage.getItem('jf:ti-theme') === 'light');
   const [reports, setReports] = useState<Report[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,11 +300,115 @@ export default function BacklogPage() {
   );
 
   return (
-    <section className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold">Backlog</h1>
-        <p className="text-sm text-muted-foreground">
-          Relatos e atualizações da equipe em tempo real.
+    <section
+      className={`space-y-5 rounded-2xl p-3 sm:p-5 transition-colors ${tiLight ? 'bg-[#edf4ff] text-slate-900' : 'bg-[#090f23] text-slate-100'}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.18em] text-blue-500">
+            <Zap className="h-4 w-4" /> JapanFlow · TI
+          </div>
+          <h1 className="text-2xl font-semibold">Centro de operações e insights</h1>
+          <p className={`text-sm ${tiLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            Sentinel, Cost Guard e relatos da equipe em um único ambiente.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label={tiLight ? 'Ativar tema escuro de TI' : 'Ativar tema claro de TI'}
+          className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm ${tiLight ? 'border-blue-200 bg-white' : 'border-slate-700 bg-slate-900'}`}
+          onClick={() => {
+            const value = !tiLight;
+            setTiLight(value);
+            localStorage.setItem('jf:ti-theme', value ? 'light' : 'dark');
+          }}
+        >
+          {tiLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          {tiLight ? 'Tema escuro' : 'Tema claro'}
+        </button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Insights técnicos">
+        {[
+          {
+            label: 'Relatos recebidos',
+            value: loading ? '—' : String(reports.length),
+            icon: <Database className="h-5 w-5" />,
+          },
+          {
+            label: 'Pendentes',
+            value: loading ? '—' : String(active.length),
+            icon: <AlertTriangle className="h-5 w-5" />,
+          },
+          {
+            label: 'Cost Guard',
+            value:
+              guard.status === 'ready'
+                ? guard.mode
+                : guard.status === 'loading'
+                  ? 'Carregando'
+                  : 'Indisponível',
+            icon: <ShieldCheck className="h-5 w-5" />,
+          },
+          {
+            label: 'Uso máximo reportado',
+            value: guard.status === 'ready' ? `${guard.maxPercentage.toFixed(1)}%` : '—',
+            icon: <Activity className="h-5 w-5" />,
+          },
+        ].map((metric) => (
+          <div
+            key={metric.label}
+            className={`rounded-2xl border p-4 ${tiLight ? 'border-blue-200 bg-white' : 'border-slate-700 bg-[#121e39]'}`}
+          >
+            <div className="flex items-center justify-between gap-2 text-sm opacity-75">
+              <span>{metric.label}</span>
+              {metric.icon}
+            </div>
+            <div className="mt-3 break-words text-2xl font-bold tabular-nums">{metric.value}</div>
+          </div>
+        ))}
+      </div>
+      <div
+        className={`rounded-2xl border p-4 ${tiLight ? 'border-blue-200 bg-white' : 'border-slate-700 bg-[#121e39]'}`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">JapanFlow Sentinel</h2>
+            <p className="text-sm opacity-75">
+              Telemetria passiva do Firestore Cost Guard; não representa disponibilidade de todos os
+              serviços.
+            </p>
+          </div>
+          <Link
+            to="/sentinel"
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-blue-500/10"
+          >
+            Detalhes <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+          <div>
+            Leituras{' '}
+            <strong className="block text-lg">
+              {guard.status === 'ready' ? `${guard.readsPercentage.toFixed(1)}%` : '—'}
+            </strong>
+          </div>
+          <div>
+            Gravações{' '}
+            <strong className="block text-lg">
+              {guard.status === 'ready' ? `${guard.writesPercentage.toFixed(1)}%` : '—'}
+            </strong>
+          </div>
+          <div>
+            Exclusões{' '}
+            <strong className="block text-lg">
+              {guard.status === 'ready' ? `${guard.deletesPercentage.toFixed(1)}%` : '—'}
+            </strong>
+          </div>
+        </div>
+        <p className="mt-3 text-xs opacity-70">
+          Atualização:{' '}
+          {guard.lastUpdated ? guard.lastUpdated.toLocaleString('pt-BR') : 'não informada'} · Dados
+          não disponíveis são exibidos como —.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">

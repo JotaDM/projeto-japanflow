@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CalendarEvent } from '@/types';
-import { format } from 'date-fns';
+import { addDays, endOfWeek, format, isWithinInterval, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, Pencil, Trash2, CalendarDays, Clock, Bell } from 'lucide-react';
 import { toast } from 'sonner';
@@ -64,6 +64,7 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
     users,
   } = useApp();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'agenda'>('month');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [title, setTitle] = useState('');
@@ -75,7 +76,20 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
   const events = getEventsForUser(userId);
 
   const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
-  const eventsForDate = events.filter((e) => e.date === selectedDateStr);
+  const eventsForDate = useMemo(() => {
+    if (!selectedDate) return [];
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
+    return events
+      .filter((event) => {
+        if (viewMode === 'day' || viewMode === 'month') return event.date === selectedDateStr;
+        const date = new Date(`${event.date}T12:00:00`);
+        if (Number.isNaN(date.getTime())) return false;
+        if (viewMode === 'week') return isWithinInterval(date, { start: weekStart, end: weekEnd });
+        return date >= new Date(`${selectedDateStr}T00:00:00`);
+      })
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+  }, [events, selectedDate, selectedDateStr, viewMode]);
 
   // Group dates by their dominant color for calendar modifiers
   const { reminderDates, allDates, sectorDates, specificDates } = useMemo(() => {
@@ -199,34 +213,104 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
         </h3>
       </div>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[auto_minmax(0,1fr)]">
-        <div className="flex min-w-0 justify-center lg:block">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            locale={ptBR}
-            className="pointer-events-auto mx-auto max-w-full rounded-2xl border border-border/70 bg-muted/10 p-2 sm:p-3"
-            modifiers={{
-              reminder: reminderDates,
-              eventAll: allDates,
-              eventSector: sectorDates,
-              eventSpecific: specificDates,
-            }}
-            modifiersClassNames={{
-              reminder: 'bg-yellow-200 dark:bg-yellow-800/40 font-bold',
-              eventAll: 'bg-red-200 dark:bg-red-800/40 font-bold',
-              eventSector: 'bg-blue-200 dark:bg-blue-800/40 font-bold',
-              eventSpecific: 'bg-green-200 dark:bg-green-800/40 font-bold',
-            }}
-          />
-        </div>
-
+      <div
+        className="mb-3 flex flex-wrap items-center gap-1 rounded-xl border bg-muted/30 p-1"
+        role="group"
+        aria-label="Visualização do calendário"
+      >
+        {(
+          [
+            ['month', 'Mês'],
+            ['week', 'Semana'],
+            ['day', 'Dia'],
+            ['agenda', 'Agenda'],
+          ] as const
+        ).map(([value, label]) => (
+          <Button
+            key={value}
+            type="button"
+            size="sm"
+            variant={viewMode === value ? 'default' : 'ghost'}
+            className="h-8 flex-1 px-2 text-xs"
+            onClick={() => setViewMode(value)}
+            aria-pressed={viewMode === value}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      <div className="grid min-w-0 gap-4">
+        {viewMode === 'month' && (
+          <div className="flex min-w-0 justify-center">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              locale={ptBR}
+              className="pointer-events-auto mx-auto max-w-full rounded-2xl border border-border/70 bg-muted/10 p-2 sm:p-3"
+              modifiers={{
+                reminder: reminderDates,
+                eventAll: allDates,
+                eventSector: sectorDates,
+                eventSpecific: specificDates,
+              }}
+              modifiersClassNames={{
+                reminder: 'bg-yellow-200 dark:bg-yellow-800/40 font-bold',
+                eventAll: 'bg-red-200 dark:bg-red-800/40 font-bold',
+                eventSector: 'bg-blue-200 dark:bg-blue-800/40 font-bold',
+                eventSpecific: 'bg-green-200 dark:bg-green-800/40 font-bold',
+              }}
+            />
+          </div>
+        )}
+        {viewMode === 'day' && selectedDate && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border p-2 text-xs">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            >
+              Anterior
+            </Button>
+            <span className="font-medium">
+              {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            >
+              Próximo
+            </Button>
+          </div>
+        )}
+        {viewMode === 'week' && selectedDate && (
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 7 }, (_, index) =>
+              addDays(startOfWeek(selectedDate, { weekStartsOn: 0 }), index)
+            ).map((date) => (
+              <button
+                key={date.toISOString()}
+                type="button"
+                onClick={() => setSelectedDate(date)}
+                className={`rounded-lg border px-1 py-2 text-center text-xs ${selectedDateStr === format(date, 'yyyy-MM-dd') ? 'border-primary bg-primary/10' : 'bg-card'}`}
+              >
+                {format(date, 'EEE dd', { locale: ptBR })}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium">
               {selectedDate
-                ? format(selectedDate, "dd 'de' MMMM", { locale: ptBR })
+                ? viewMode === 'agenda'
+                  ? 'Próximos eventos'
+                  : viewMode === 'week'
+                    ? 'Eventos da semana'
+                    : format(selectedDate, "dd 'de' MMMM", { locale: ptBR })
                 : 'Selecione uma data'}
             </p>
             <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
@@ -270,6 +354,9 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
                             <Bell className="w-3 h-3 text-gray-900 dark:text-gray-950" />
                           ) : (
                             <CalendarDays className="w-3 h-3 text-gray-900 dark:text-gray-950" />
+                          )}
+                          {(viewMode === 'week' || viewMode === 'agenda') && (
+                            <span className="text-[10px] font-medium">{event.date}</span>
                           )}
                           <span className="font-semibold truncate text-gray-900 dark:text-gray-950">
                             {event.title}

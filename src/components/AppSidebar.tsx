@@ -8,6 +8,7 @@ import {
   X,
   Activity,
   ClipboardList,
+  Zap,
   ChevronRight,
   LayoutGrid,
   LogOut,
@@ -479,7 +480,7 @@ const AppSidebar = ({
               <button
                 type="button"
                 onClick={() => handleNav('/backlog')}
-                title="Backlog · relatos da equipe"
+                title="TI · observabilidade e relatos"
                 aria-current={location.pathname === '/backlog' ? 'page' : undefined}
                 className={cn(
                   'jf-interactive mb-2 flex h-10 w-full items-center rounded-xl text-sm font-semibold',
@@ -489,8 +490,8 @@ const AppSidebar = ({
                     : 'text-sidebar-foreground hover:bg-sidebar-accent'
                 )}
               >
-                <ClipboardList className="h-5 w-5 shrink-0" />
-                {!collapsed && <span>Backlog</span>}
+                <Zap className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>TI</span>}
               </button>
             )}
             {primaryItems.map(renderNavItem)}
@@ -709,87 +710,89 @@ const AppSidebar = ({
               {isActingAsTi ? 'Voltar Ryan' : 'Modo TI'}
             </button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="jf-interactive relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                aria-label="Notificações do sistema"
-                title="Notificações"
-              >
-                <Bell className="h-[18px] w-[18px]" />
-                {systemUnreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                    {systemUnreadCount > 99 ? '99+' : systemUnreadCount}
-                  </span>
-                )}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              align="end"
-              className="max-h-[360px] w-[320px] overflow-y-auto"
-            >
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-popover px-3 py-2">
-                <span className="text-xs font-semibold">Avisos do sistema</span>
+          {!collapsed && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  title="Limpar avisos antigos"
-                  aria-label="Limpar avisos antigos"
-                  disabled={clearingSystemNotifications || systemNotifications.length === 0}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void clearSystemNotifications();
-                  }}
-                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+                  className="jf-interactive relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  aria-label="Notificações do sistema"
+                  title="Notificações"
                 >
-                  <X className="h-4 w-4" />
+                  <Bell className="h-[18px] w-[18px]" />
+                  {systemUnreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                      {systemUnreadCount > 99 ? '99+' : systemUnreadCount}
+                    </span>
+                  )}
                 </button>
-              </div>
-              {systemNotifications.length === 0 ? (
-                <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-                  Nenhuma notificação
-                </div>
-              ) : (
-                systemNotifications.slice(0, 20).map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className="flex cursor-pointer flex-col items-start gap-1 px-3 py-3"
-                    onClick={() => void markSystemNotificationAsRead(notification.id)}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="end"
+                className="max-h-[360px] w-[320px] overflow-y-auto"
+              >
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-popover px-3 py-2">
+                  <span className="text-xs font-semibold">Avisos do sistema</span>
+                  <button
+                    type="button"
+                    title="Limpar avisos antigos"
+                    aria-label="Limpar avisos antigos"
+                    disabled={clearingSystemNotifications || systemNotifications.length === 0}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void clearSystemNotifications();
+                    }}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
                   >
-                    <div className="flex w-full items-start gap-2">
-                      <span
-                        className={cn(
-                          'mt-1 h-2.5 w-2.5 shrink-0 rounded-full',
-                          notification.severity === 'critical'
-                            ? 'bg-destructive'
-                            : notification.severity === 'warning'
-                              ? 'bg-orange-500'
-                              : notification.severity === 'attention'
-                                ? 'bg-yellow-500'
-                                : 'bg-primary'
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {systemNotifications.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    Nenhuma notificação
+                  </div>
+                ) : (
+                  systemNotifications.slice(0, 20).map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className="flex cursor-pointer flex-col items-start gap-1 px-3 py-3"
+                      onClick={() => void markSystemNotificationAsRead(notification.id)}
+                    >
+                      <div className="flex w-full items-start gap-2">
+                        <span
                           className={cn(
-                            'text-xs',
-                            notification.read ? 'font-medium' : 'font-semibold'
+                            'mt-1 h-2.5 w-2.5 shrink-0 rounded-full',
+                            notification.severity === 'critical'
+                              ? 'bg-destructive'
+                              : notification.severity === 'warning'
+                                ? 'bg-orange-500'
+                                : notification.severity === 'attention'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-primary'
                           )}
-                        >
-                          {notification.title}
-                        </p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                          {notification.message}
-                        </p>
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              'text-xs',
+                              notification.read ? 'font-medium' : 'font-semibold'
+                            )}
+                          >
+                            {notification.title}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                            {notification.message}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {!collapsed && (
             <button
               type="button"
