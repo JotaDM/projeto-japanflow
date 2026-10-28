@@ -31,6 +31,16 @@ export interface WarrantyClaim {
   installationMileage: string | null;
   currentMileage: string | null;
   productImages: string[];
+  origin?: string;
+  siteProtocol?: string;
+  siteOrder?: string;
+  siteContactChannel?: string;
+  siteContact?: string;
+  siteReceived?: string;
+  siteInstalled?: string;
+  siteVehicle?: string;
+  siteNotes?: string;
+  siteAttachments?: { path: string; name: string; type: string; size: number; sha256: string }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -62,7 +72,7 @@ const mapClaim = (id: string, data: any): WarrantyClaim => ({
   defectDescription: data.defect_description || '',
   saleDate: data.sale_date || '',
   invoiceNumber: data.invoice_number || '',
-  status: data.status || 'pending',
+  status: data.status === 'pending' ? 'pendente' : data.status || 'pendente',
   requestedBy: data.requested_by || '',
   laborReimbursementEnabled: data.labor_reimbursement_enabled === true,
   laborReimbursementFileUrl: data.labor_reimbursement_file_url || null,
@@ -72,6 +82,16 @@ const mapClaim = (id: string, data: any): WarrantyClaim => ({
   installationMileage: data.installation_mileage || null,
   currentMileage: data.current_mileage || null,
   productImages: Array.isArray(data.product_images) ? data.product_images : [],
+  origin: data.origin || '',
+  siteProtocol: data.site_protocol || '',
+  siteOrder: data.site_order || '',
+  siteContactChannel: data.site_contact_channel || '',
+  siteContact: data.site_contact || '',
+  siteReceived: data.site_received || '',
+  siteInstalled: data.site_installed || '',
+  siteVehicle: data.site_vehicle || '',
+  siteNotes: data.site_notes || '',
+  siteAttachments: Array.isArray(data.site_attachments) ? data.site_attachments : [],
   createdAt: toIso(data.created_at),
   updatedAt: toIso(data.updated_at),
 });

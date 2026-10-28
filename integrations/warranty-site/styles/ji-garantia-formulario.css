@@ -1,0 +1,653 @@
+.ji-warranty-request {
+  --gw-red: #b61616;
+  --gw-ink: #222b31;
+  --gw-border: #7d8b95;
+  --gw-soft: #f6f8f9;
+  margin: 28px 0 40px;
+  padding: 30px;
+  border: 1px solid #d1d9de;
+  border-top: 3px solid var(--gw-red);
+  border-radius: 12px;
+  background: linear-gradient(150deg, #fff 65%, #fcf7f6);
+  color: var(--gw-ink);
+  scroll-margin-top: 90px;
+  box-shadow: 0 8px 28px #26313b07;
+}
+.ji-warranty-request [hidden] {
+  display: none !important;
+}
+.ji-warranty-request * {
+  box-sizing: border-box;
+}
+.ji-warranty-request .ji-gw-heading h2 {
+  margin: 6px 0 10px;
+  font-size: 32px;
+  line-height: 1.15;
+}
+.ji-warranty-request .ji-gw-heading p {
+  margin: 0 0 16px;
+}
+.ji-gw-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.25px;
+  text-transform: uppercase;
+  color: #9f1419;
+}
+.ji-gw-demo {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: #f1f4f6;
+  color: #46535d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ji-gw-demo svg {
+  flex: none;
+  margin-top: 1px;
+}
+.ji-warranty-request .ji-gw-steps {
+  display: flex;
+  gap: 0;
+  margin: 24px 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #d5dde2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+.ji-warranty-request .ji-gw-steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 10px;
+  font-size: 13px;
+  color: #56616b;
+}
+.ji-gw-steps li + li {
+  border-left: 1px solid #d5dde2;
+}
+.ji-gw-steps span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid #aeb9c0;
+  border-radius: 50%;
+  font-size: 12px;
+}
+.ji-warranty-request .ji-gw-steps li[aria-current] {
+  color: #a01217;
+  background: #fbefef;
+  font-weight: 700;
+}
+.ji-gw-steps [aria-current] span {
+  color: white;
+  background: var(--gw-red);
+  border-color: var(--gw-red);
+}
+.ji-warranty-request fieldset {
+  min-width: 0;
+  margin: 24px 0 0;
+  padding: 22px 0 0;
+  border: 0;
+  border-top: 1px solid #d7dee3;
+}
+.ji-warranty-request legend {
+  float: left;
+  width: 100%;
+  padding: 0 0 17px;
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.35;
+  font-weight: 700;
+  font-family: Rajdhani, Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ji-warranty-request legend + * {
+  clear: both;
+}
+.ji-gw-number {
+  font:
+    700 12px/1 Ubuntu,
+    Arial,
+    sans-serif;
+  color: var(--gw-red);
+  background: #faeeee;
+  border-radius: 5px;
+  padding: 8px;
+}
+.ji-gw-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 20px;
+}
+.ji-gw-wide {
+  grid-column: 1/-1;
+}
+.ji-gw-field {
+  min-width: 0;
+  margin-bottom: 19px;
+}
+.ji-warranty-request label {
+  display: block;
+  margin-bottom: 7px;
+  color: #222b31;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.ji-gw-optional {
+  color: #596672;
+  font-size: 11px;
+  font-weight: 400;
+  margin-left: 5px;
+}
+.ji-warranty-request input:not([type='file']),
+.ji-warranty-request textarea,
+.ji-warranty-request select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  max-width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--gw-border);
+  border-radius: 6px;
+  background: white;
+  color: #222b31;
+  font:
+    400 15px/1.5 Ubuntu,
+    Arial,
+    sans-serif;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  box-shadow: none;
+}
+.ji-warranty-request textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.ji-warranty-request small {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #56636e;
+  margin-top: 5px;
+}
+.ji-warranty-request input:focus-visible,
+.ji-warranty-request textarea:focus-visible,
+.ji-warranty-request select:focus-visible,
+.ji-warranty-request button:focus-visible,
+.ji-warranty-request a:focus-visible {
+  outline: 3px solid #a61720;
+  outline-offset: 3px;
+}
+.ji-warranty-request [aria-invalid='true'] {
+  border-color: #b61616 !important;
+  box-shadow: 0 0 0 1px #b61616 !important;
+}
+.ji-warranty-request .ji-gw-error {
+  color: #a01217;
+}
+.ji-gw-error:empty {
+  display: none;
+}
+.ji-gw-error-summary {
+  padding: 16px;
+  background: #fff3f2;
+  border: 1px solid #b61616;
+  border-radius: 7px;
+  color: #8e1015;
+  margin: 16px 0;
+}
+.ji-gw-error-summary:focus {
+  outline: 3px solid #a61720;
+  outline-offset: 3px;
+}
+.ji-gw-error-summary ul {
+  margin: 8px 0 0 !important;
+  padding-left: 20px !important;
+}
+.ji-warranty-request .ji-gw-required {
+  font-size: 12px;
+  color: #56636e;
+  margin: 0 0 5px;
+}
+.ji-gw-required span {
+  color: #a01217;
+  font-weight: 700;
+}
+.ji-gw-drop {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 24px 16px;
+  border: 1px dashed #7d8b95;
+  border-radius: 9px;
+  background: #f7f9fa;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+.ji-gw-drop > svg {
+  color: #a5151d;
+  margin-bottom: 9px;
+}
+.ji-gw-drop label {
+  font-weight: 700;
+  font-size: 15px;
+}
+.ji-gw-drop label span {
+  display: block;
+  font-size: 12px;
+  color: #596672;
+  font-weight: 400;
+  margin-top: 3px;
+}
+.ji-gw-drop.is-over {
+  border-color: #b61616;
+  background: #fff0f0;
+}
+.ji-warranty-request input[type='file'] {
+  font:
+    400 12px/1.5 Ubuntu,
+    Arial,
+    sans-serif;
+  display: block;
+  min-height: 44px;
+  width: 100%;
+  max-width: 300px;
+  color: #3c4c57;
+  margin: 10px auto 0;
+}
+.ji-warranty-request input[type='file']::file-selector-button {
+  padding: 10px 12px;
+  min-height: 44px;
+  font:
+    500 12px/1.5 Ubuntu,
+    Arial,
+    sans-serif;
+  background: white;
+  color: #a01217;
+  border: 1px solid #7d8b95;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+.ji-gw-file-status {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a01217;
+}
+.ji-warranty-request .ji-gw-file-list {
+  padding: 0;
+  margin: 12px 0;
+  list-style: none;
+}
+.ji-warranty-request .ji-gw-file-list li {
+  padding: 10px 12px;
+  margin: 0 0 8px;
+  background: #f2f5f7;
+  border-radius: 6px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ji-gw-file-list li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ji-gw-file-list button {
+  background: white;
+  border: 1px solid #7d8b95;
+  border-radius: 5px;
+  color: #a01217;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px;
+  cursor: pointer;
+  flex: none;
+  font:
+    500 12px Ubuntu,
+    Arial,
+    sans-serif;
+}
+.ji-warranty-request .ji-gw-safety {
+  font-size: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid #a7b7c1;
+  background: #f4f7f8;
+  color: #455560;
+  margin: 15px 0;
+}
+.ji-gw-safety strong {
+  display: block;
+  color: #27343e;
+  margin-bottom: 4px;
+}
+.ji-warranty-request .ji-gw-bottom {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #d7dee3;
+}
+.ji-gw-bottom p {
+  font-size: 12px;
+  color: #53626d;
+  line-height: 1.6;
+  margin-bottom: 17px;
+}
+.ji-warranty-request .ji-gw-primary,
+.ji-warranty-request .ji-gw-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  max-width: 100%;
+  padding: 13px 20px;
+  border-radius: 6px;
+  border: 1px solid #b61616;
+  background: #b61616;
+  color: white;
+  font:
+    700 14px/1.5 Ubuntu,
+    Arial,
+    sans-serif;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+.ji-warranty-request .ji-gw-primary:hover {
+  background: #951015;
+  border-color: #951015;
+}
+.ji-warranty-request .ji-gw-secondary {
+  background: white;
+  color: #a01217;
+  border-color: #7d8b95;
+}
+.ji-warranty-request .ji-gw-secondary:hover {
+  background: #f9eeee;
+}
+.ji-gw-review h3,
+.ji-gw-result h3 {
+  font-size: 26px;
+  line-height: 1.25;
+  margin: 22px 0 12px;
+}
+.ji-gw-review dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+  margin: 24px 0;
+}
+.ji-gw-review dl > div {
+  padding: 12px 0;
+  border-bottom: 1px solid #d5dde2;
+  min-width: 0;
+}
+.ji-gw-review dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: #53616c;
+  margin-bottom: 5px;
+}
+.ji-gw-review dd {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.ji-gw-review .ji-gw-full {
+  grid-column: 1/-1;
+}
+.ji-gw-review-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+.ji-gw-review,
+.ji-gw-result {
+  animation: ji-gw-appear 260ms ease both;
+}
+.ji-gw-result {
+  text-align: center;
+  padding: 24px 0;
+}
+.ji-gw-result > svg {
+  color: #a01217;
+}
+.ji-gw-result p {
+  font-size: 14px;
+  max-width: 580px;
+  margin: 0 auto 22px;
+}
+.ji-gw-help {
+  margin-top: 28px;
+  padding: 20px 0 0;
+  border-top: 1px solid #d7dee3;
+}
+.ji-gw-help strong {
+  font-size: 16px;
+}
+.ji-gw-help p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 7px 0 0;
+}
+.ji-gw-help a {
+  overflow-wrap: anywhere;
+  color: #a01217;
+}
+@keyframes ji-gw-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 760px) {
+  .ji-warranty-request {
+    padding: 22px 18px;
+    margin: 22px 0 32px;
+  }
+  .ji-warranty-request .ji-gw-heading h2 {
+    font-size: 28px;
+  }
+  .ji-gw-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ji-warranty-request .ji-gw-steps li {
+    font-size: 11px;
+    padding: 10px 7px;
+    gap: 5px;
+  }
+  .ji-gw-steps span {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+  }
+  .ji-gw-review dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ji-gw-review-actions {
+    flex-direction: column-reverse;
+  }
+  .ji-gw-review-actions button,
+  .ji-gw-bottom > button {
+    width: 100%;
+  }
+  .ji-gw-drop {
+    padding: 20px 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ji-warranty-request * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Revision 22: clearer entry states, native option lists and contained productive motion. */
+.ji-warranty-request input::placeholder,
+.ji-warranty-request textarea::placeholder {
+  color: #596672;
+  opacity: 1;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.ji-warranty-request input:disabled {
+  background: #f1f4f6;
+  color: #596672;
+  cursor: not-allowed;
+  border-color: #88969f;
+}
+.ji-gw-select {
+  position: relative;
+}
+.ji-warranty-request .ji-gw-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 46px;
+  background-image: none;
+  cursor: pointer;
+  color: #222b31;
+}
+.ji-warranty-request .ji-gw-select select.is-placeholder {
+  color: #596672;
+}
+.ji-gw-select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #4e5d68;
+}
+.ji-gw-select:focus-within .ji-gw-select-arrow {
+  color: #a01217;
+}
+.ji-warranty-request #ji-gw-product {
+  min-height: 82px;
+}
+.ji-warranty-request .ji-gw-heading {
+  position: relative;
+  padding-bottom: 4px;
+}
+.ji-warranty-request .ji-gw-steps {
+  background: #fff;
+}
+.ji-warranty-request .ji-gw-steps li[aria-current] {
+  background: linear-gradient(100deg, #fceeee, #fcf8f7);
+}
+.ji-warranty-request .ji-gw-bottom {
+  background: linear-gradient(110deg, #fff, #fcf7f5);
+  margin-left: -10px;
+  margin-right: -10px;
+  padding: 18px 10px 0;
+  border-radius: 0 0 6px 6px;
+}
+.ji-warranty-request #ji-gw-vehicle-field:not([hidden]) {
+  animation: ji-gw-appear 240ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.ji-warranty-request .ji-gw-review,
+.ji-warranty-request .ji-gw-result {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.ji-institucional[data-motion='light'] .ji-warranty-request * {
+  animation: none !important;
+  transition: none !important;
+}
+@media (forced-colors: active) {
+  .ji-warranty-request input,
+  .ji-warranty-request select,
+  .ji-warranty-request textarea,
+  .ji-warranty-request button {
+    border: 1px solid CanvasText !important;
+  }
+  .ji-gw-select-arrow {
+    color: CanvasText;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ji-warranty-request * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Required markers remain distinct from the label in both static and dynamic states. */
+.ji-warranty-request label span[aria-hidden='true'],
+.ji-warranty-request .ji-gw-required-mark,
+.ji-warranty-request .ji-gw-required span {
+  color: #b61616 !important;
+  font-weight: 700;
+}
+.ji-gw-order-wrap {
+  position: relative;
+}
+.ji-gw-order-prefix {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 700;
+  color: #465560;
+  pointer-events: none;
+}
+.ji-warranty-request .ji-gw-order-wrap input {
+  padding-left: 32px;
+}
+.ji-warranty-request .ji-gw-compression-note {
+  font-size: 12px;
+  color: #53616c;
+  line-height: 1.6;
+  margin: 12px 0;
+}
+.ji-gw-file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: none;
+}
+.ji-warranty-request [aria-busy='true'] {
+  cursor: progress;
+}
+.ji-warranty-request .ji-gw-primary:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+@media (max-width: 760px) {
+  .ji-warranty-request .ji-gw-file-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .ji-gw-file-actions {
+    justify-content: flex-start;
+  }
+}

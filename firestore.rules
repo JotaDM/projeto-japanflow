@@ -366,9 +366,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Only Admin SDK may change intake receipts/quota/leases.
+    match /site_warranty_receipts/{receiptId} {
+      allow read, write: if false;
+    }
+
     // Colecoes operacionais nao cobertas pelas regras especificas.
     match /{collection}/{document=**} {
       allow read, write: if isActive()
+        && collection != 'site_warranty_receipts'
         && collection != 'users'
         && collection != 'auth_links'
         && collection != 'user_feature_permissions'
