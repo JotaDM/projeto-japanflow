@@ -24,24 +24,24 @@ export default function SystemFooter() {
 
   return (
     <footer
-      className="mt-10 w-full border-t border-border/60 bg-background/70 px-4 py-4 text-xs text-muted-foreground"
+      className="mt-10 w-full border-t border-border/60 bg-background/70 px-4 py-6 text-xs text-muted-foreground"
       aria-label="Rodape do sistema"
     >
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col items-center justify-center gap-2 text-center">
         <span
-          className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center"
+          className="relative inline-flex h-24 w-24 shrink-0 items-center justify-center"
           aria-hidden="true"
         >
           <img
             src="/branding/japanflow-footer-light.svg"
             alt=""
-            className="jf-footer-logo-light h-6 w-6 object-contain"
+            className="jf-footer-logo-light h-24 w-24 object-contain"
             loading="lazy"
           />
           <img
             src="/branding/japanflow-footer-dark.svg"
             alt=""
-            className="jf-footer-logo-dark hidden h-6 w-6 object-contain"
+            className="jf-footer-logo-dark hidden h-24 w-24 object-contain"
             loading="lazy"
           />
         </span>
