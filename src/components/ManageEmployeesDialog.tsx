@@ -96,7 +96,9 @@ const ManageEmployeesDialog = () => {
   const [pendingReset, setPendingReset] = useState<{ id: string; name: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
-  const employees = users.filter((u) => u.role === 'employee' && u.active !== false);
+  const employees = users.filter(
+    (u) => (u.role === 'employee' || u.role === 'admin') && u.active !== false
+  );
 
   const handleAdd = async () => {
     if (!newName.trim() || !newUsername.trim() || newPassword.length < 6) {
@@ -358,16 +360,18 @@ const ManageEmployeesDialog = () => {
                       >
                         <KeyRound className="w-3.5 h-3.5" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setPendingDelete({ id: emp.id, name: emp.name })}
-                        disabled={saving}
-                        title="Excluir funcionário"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {emp.role !== 'admin' && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setPendingDelete({ id: emp.id, name: emp.name })}
+                          disabled={saving}
+                          title="Excluir funcionário"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}

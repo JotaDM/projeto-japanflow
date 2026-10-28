@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import {
   Archive,
   ArchiveRestore,
@@ -41,6 +41,44 @@ import {
 import TaskCard from './TaskCard';
 import TaskDetailDialog from './TaskDetailDialog';
 import { useArchivedTasksForBoard } from '@/hooks/useArchivedTasksForBoard';
+
+const normalizeSearchText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+const searchMatches = (queryText: string, title: string, description = '') => {
+  const terms = normalizeSearchText(queryText).trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const words = normalizeSearchText(`${title} ${description}`)
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const close = (a: string, b: string): boolean => {
+    if (b.includes(a)) return true;
+    // Uma troca, inserção ou remoção de caractere para palavras com 4+ letras.
+    if (a.length < 4 || Math.abs(a.length - b.length) > 1) return false;
+    let i = 0,
+      j = 0,
+      errors = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) {
+        i++;
+        j++;
+        continue;
+      }
+      if (++errors > 1) return false;
+      if (a.length > b.length) i++;
+      else if (b.length > a.length) j++;
+      else {
+        i++;
+        j++;
+      }
+    }
+    return errors + (a.length - i) + (b.length - j) <= 1;
+  };
+  return terms.every((term) => words.some((word) => close(term, word)));
+};
 
 const ALL_COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'paused', 'done'];
 const MOTOBOY_COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'done'];
@@ -248,7 +286,7 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
   const [statusFilter, setStatusFilter] = useState('all');
   // Histórico paginado no diálogo; o Kanban operacional permanece intacto.
   const archivedHistory = useArchivedTasksForBoard(
-    archiveDialogOpen,
+    archiveDialogOpen || search.trim().length >= 2,
     [boardUserId, boardAuthUid].filter((value): value is string => Boolean(value))
   );
 
@@ -316,6 +354,34 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
     return [...existing.values()];
   }, [archivedTasks, archivedHistory.items, boardUserId, boardAuthUid]);
 
+  const archiveMatches = useMemo(
+    () =>
+      search.trim().length >= 2
+        ? pagedArchivedTasks.filter((task) =>
+            searchMatches(search, task.title, task.description || '')
+          )
+        : [],
+    [search, pagedArchivedTasks]
+  );
+
+  // Pesquisa todo o histórico paginado do quadro, sem misturá-lo ao Kanban arrastável.
+  useEffect(() => {
+    if (
+      search.trim().length < 2 ||
+      archivedHistory.loading ||
+      archivedHistory.error ||
+      !archivedHistory.hasMore
+    )
+      return;
+    void archivedHistory.loadMore();
+  }, [
+    search,
+    archivedHistory.loading,
+    archivedHistory.error,
+    archivedHistory.hasMore,
+    archivedHistory.loadMore,
+  ]);
+
   const userIsMotoboy =
     currentUser?.sectors?.includes('motoboys' as Sector) && currentUser?.role !== 'admin';
   const hasMotoTasks = visibleTasks.some((task) => task.sector === 'motoboys');
@@ -327,20 +393,12 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
 
   // Filtros locais: não alteram dados ou assinaturas Firestore.
   const filteredTasks = useMemo(() => {
-    const normalize = (value: string) =>
-      value
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLocaleLowerCase('pt-BR');
-    const terms = normalize(search.trim()).split(/\s+/).filter(Boolean);
-    return visibleTasks.filter((task) => {
-      const haystack = normalize(`${task.title} ${task.description || ''}`);
-      return (
+    return visibleTasks.filter(
+      (task) =>
         (statusFilter === 'all' || task.status === statusFilter) &&
         (priorityFilter === 'all' || String(task.priority) === priorityFilter) &&
-        terms.every((term) => haystack.includes(term))
-      );
-    });
+        searchMatches(search, task.title, task.description || '')
+    );
   }, [visibleTasks, search, priorityFilter, statusFilter]);
 
   const getColumnTasks = (status: TaskStatus) =>
@@ -669,6 +727,32 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
         )}
       </div>
 
+      {search.trim().length >= 2 && (
+        <div className="mb-4 rounded-xl border border-border/70 bg-card p-3" role="status">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm">
+              {archiveMatches.length} resultado(s) arquivado(s)
+              {archivedHistory.loading ? ' · pesquisando histórico…' : ''}
+              {archivedHistory.hasMore ? ' · pesquisa em andamento' : ''}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setArchiveSearch(search);
+                setArchiveDialogOpen(true);
+              }}
+            >
+              Ver tarefas arquivadas
+            </Button>
+          </div>
+          {archivedHistory.error && (
+            <p className="text-xs text-destructive">{archivedHistory.error}</p>
+          )}
+        </div>
+      )}
+
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
         <DialogContent className="max-w-2xl rounded-2xl">
           <DialogHeader>
@@ -691,9 +775,7 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
             </label>
             <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
               {pagedArchivedTasks.filter((task) =>
-                `${task.title} ${task.description || ''}`
-                  .toLocaleLowerCase('pt-BR')
-                  .includes(archiveSearch.trim().toLocaleLowerCase('pt-BR'))
+                searchMatches(archiveSearch, task.title, task.description || '')
               ).length === 0 ? (
                 <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 text-center">
                   <p className="text-sm text-muted-foreground">Nenhuma tarefa arquivada.</p>
@@ -701,9 +783,7 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
               ) : (
                 pagedArchivedTasks
                   .filter((task) =>
-                    `${task.title} ${task.description || ''}`
-                      .toLocaleLowerCase('pt-BR')
-                      .includes(archiveSearch.trim().toLocaleLowerCase('pt-BR'))
+                    searchMatches(archiveSearch, task.title, task.description || '')
                   )
                   .map((task) => (
                     <div
