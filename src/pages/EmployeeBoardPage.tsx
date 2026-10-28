@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { UserRound, Database, Cloud, Activity } from 'lucide-react';
+import { UserRound, Database, Cloud, Activity, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { useApp } from '@/contexts/AppContext';
@@ -10,6 +10,7 @@ import PickupsPanel from '@/components/PickupsPanel';
 import { canSeePickups } from '@/components/PickupsPanel';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import EmployeeCalendar from '@/components/EmployeeCalendar';
+import CustomizableWorkspace from '@/components/CustomizableWorkspace';
 import DailyCompletedCounter from '@/components/DailyCompletedCounter';
 import TaskHistoryDialog from '@/components/TaskHistoryDialog';
 import WorkScheduleBanner from '@/components/WorkScheduleBanner';
@@ -91,6 +92,7 @@ const EmployeeBoardPage = () => {
               <Activity className="h-5 w-5" />
               GAS
             </Link>
+            <Link to="/sentinel" className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted"><ShieldAlert className="h-4 w-4"/>Sentinel</Link>
           </div>
         </div>
       ) : (
@@ -157,29 +159,11 @@ const EmployeeBoardPage = () => {
         </div>
       </section>
 
-      {currentUser && !employeeId && canSeePickups(currentUser) && (
-        <section className="min-w-0">
-          <PickupsPanel />
-        </section>
-      )}
-
-      {permissionsLoading && (
-        <p
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-border/70 bg-muted/20 px-4 py-2 text-xs text-muted-foreground animate-pulse"
-        >
-          Verificando permissões para criar tarefas…
-        </p>
-      )}
-
-      <section className="min-w-0">
-        <KanbanBoard tasks={tasks} boardUserId={viewUserId} boardAuthUid={viewUser?.authUid} />
-      </section>
-
-      <section className="min-w-0">
-        <EmployeeCalendar userId={viewUserId} />
-      </section>
+      <CustomizableWorkspace userId={viewUserId} blocks={[
+        ...(currentUser && !employeeId && canSeePickups(currentUser) ? [{ id: 'pickups', label: 'Retiradas', content: <PickupsPanel /> }] : []),
+        { id: 'tasks', label: 'Tarefas', content: <><section className="min-w-0"><KanbanBoard tasks={tasks} boardUserId={viewUserId} boardAuthUid={viewUser?.authUid} /></section></> },
+        { id: 'calendar', label: 'Calendário', content: <EmployeeCalendar userId={viewUserId} /> },
+      ]} actions={permissionsLoading && <span className="text-xs text-muted-foreground">Verificando permissões…</span>} />
     </div>
   );
 };

@@ -1,10 +1,11 @@
 import { Navigate, Link } from 'react-router-dom';
-import { Database, Cloud, Activity } from 'lucide-react';
+import { Database, Cloud, Activity, ShieldAlert } from 'lucide-react';
 
 import { useApp } from '@/contexts/AppContext';
 import KanbanBoard from '@/components/KanbanBoard';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import EmployeeCalendar from '@/components/EmployeeCalendar';
+import CustomizableWorkspace from '@/components/CustomizableWorkspace';
 import DailyCompletedCounter from '@/components/DailyCompletedCounter';
 import TaskHistoryDialog from '@/components/TaskHistoryDialog';
 import WorkScheduleBanner from '@/components/WorkScheduleBanner';
@@ -99,21 +100,11 @@ const AdminPage = () => {
         </div>
       </section>
 
-      <section className="min-w-0">
-        <PickupsPanel />
-      </section>
-
-      <section className="min-w-0 overflow-hidden">
-        <KanbanBoard
-          tasks={tasks}
-          boardUserId={currentUser.id}
-          boardAuthUid={currentUser.authUid}
-        />
-      </section>
-
-      <section className="min-w-0">
-        <EmployeeCalendar userId={currentUser.id} />
-      </section>
+      <CustomizableWorkspace userId={currentUser.id} blocks={[
+        { id: 'pickups', label: 'Retiradas', content: <PickupsPanel /> },
+        { id: 'tasks', label: 'Tarefas', content: <KanbanBoard tasks={tasks} boardUserId={currentUser.id} boardAuthUid={currentUser.authUid} /> },
+        { id: 'calendar', label: 'Calendário', content: <EmployeeCalendar userId={currentUser.id} /> },
+      ]} />
     </div>
   );
 };
