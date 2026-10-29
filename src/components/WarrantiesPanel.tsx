@@ -230,7 +230,7 @@ const WarrantiesPanel = () => {
 
     setDeleting(true);
     try {
-      const result = await softDeleteClaim(deleteTarget.id, currentUser.id);
+      const result = await softDeleteClaim(deleteTarget.id);
       toast.success('Garantia enviada para a lixeira');
 
       if (result.archivedTasks === 0 && deleteTarget.origin !== 'site') {
@@ -259,7 +259,7 @@ const WarrantiesPanel = () => {
 
     setRestoringId(claim.id);
     try {
-      await restoreClaim(claim.id, currentUser.id);
+      await restoreClaim(claim.id);
       toast.success('Garantia restaurada com sucesso');
     } catch (error) {
       console.error('[Garantias] Falha ao restaurar:', error);

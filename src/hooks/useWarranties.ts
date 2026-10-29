@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '@/lib/firebase';
+import app, { db } from '@/lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   collection,
   doc,
@@ -8,9 +9,6 @@ import {
   query,
   Timestamp,
   writeBatch,
-  deleteField,
-  getDocs,
-  where,
   runTransaction,
 } from 'firebase/firestore';
 
@@ -326,108 +324,21 @@ export const useWarranties = () => {
     []
   );
 
-  // Arquivamento reversível: somente tarefas com warranty_id explícito.
-  // A consulta seleciona as referências; a transação relê cada documento
-  // antes de alterá-lo, evitando sobrescrever mudanças simultâneas.
-  const softDeleteClaim = useCallback(async (id: string, deletedBy: string) => {
-    if (!id || !deletedBy) throw new Error('Garantia ou usuário inválido');
-    const claimRef = doc(db, 'warranty_claims', id);
-    const linked = await getDocs(
-      query(collection(db, 'tasks'), where('warranty_id', '==', id))
+  // Exclusão e restauração só pelo backend autenticado. Nunca confiar em actorId do cliente.
+  const softDeleteClaim = useCallback(async (id: string): Promise<{ archivedTasks: number }> => {
+    const operation = httpsCallable<{ warrantyId: string; action: 'delete' | 'restore' }, { archivedTasks: number }>(
+      getFunctions(app, 'southamerica-east1'), 'manageWarrantyLifecycle'
     );
-    if (linked.size > 100) {
-      throw new Error('Número inesperado de tarefas vinculadas. Revisão necessária.');
-    }
-    const historyRef = doc(collection(db, 'warranty_updates'));
-
-    return runTransaction(db, async (tx) => {
-      const claim = await tx.get(claimRef);
-      if (!claim.exists()) throw new Error('Garantia não encontrada');
-      if (claim.data().deleted_at) throw new Error('Garantia já excluída');
-      const tasks = await Promise.all(linked.docs.map((task) => tx.get(task.ref)));
-      const now = Timestamp.now();
-      let archivedTasks = 0;
-
-      tx.update(claimRef, { deleted_at: now, deleted_by: deletedBy, updated_at: now });
-      for (const task of tasks) {
-        if (!task.exists()) continue;
-        const value = task.data();
-        if (value.warranty_id !== id || value.archived_at || value.archivedAt) continue;
-        tx.update(task.ref, {
-          archived_at: now,
-          archived_by: deletedBy,
-          board_visible: false,
-          warranty_archived_by_deletion: id,
-          warranty_previous_board_visible: value.board_visible !== false,
-          updated_at: now,
-        });
-        archivedTasks++;
-      }
-      tx.set(historyRef, {
-        warranty_id: id,
-        user_id: deletedBy,
-        content: 'Garantia enviada para a lixeira.',
-        attachment_url: null,
-        attachment_name: null,
-        created_at: now,
-      });
-      return { archivedTasks };
-    });
+    const result = await operation({ warrantyId: id, action: 'delete' });
+    return result.data;
   }, []);
 
-  const restoreClaim = useCallback(async (id: string, restoredBy: string) => {
-    if (!id || !restoredBy) throw new Error('Garantia ou usuário inválido');
-    const claimRef = doc(db, 'warranty_claims', id);
-    const linked = await getDocs(
-      query(collection(db, 'tasks'), where('warranty_id', '==', id))
+  const restoreClaim = useCallback(async (id: string): Promise<{ restoredTasks: number }> => {
+    const operation = httpsCallable<{ warrantyId: string; action: 'delete' | 'restore' }, { restoredTasks: number }>(
+      getFunctions(app, 'southamerica-east1'), 'manageWarrantyLifecycle'
     );
-    if (linked.size > 100) {
-      throw new Error('Número inesperado de tarefas vinculadas. Revisão necessária.');
-    }
-    const historyRef = doc(collection(db, 'warranty_updates'));
-
-    return runTransaction(db, async (tx) => {
-      const claim = await tx.get(claimRef);
-      if (!claim.exists()) throw new Error('Garantia não encontrada');
-      if (!claim.data().deleted_at) throw new Error('Garantia não está na lixeira');
-      const tasks = await Promise.all(linked.docs.map((task) => tx.get(task.ref)));
-      const now = Timestamp.now();
-      let restoredTasks = 0;
-
-      tx.update(claimRef, {
-        deleted_at: deleteField(),
-        deleted_by: deleteField(),
-        updated_at: now,
-      });
-      for (const task of tasks) {
-        if (!task.exists()) continue;
-        const value = task.data();
-        if (value.warranty_id !== id || value.warranty_archived_by_deletion !== id) continue;
-        // Não desfaz arquivamentos modificados por outra operação após a exclusão.
-        const archiveDate = value.archived_at;
-        const claimDeleteDate = claim.data().deleted_at;
-        if (!archiveDate || typeof archiveDate.isEqual !== 'function' ||
-            !archiveDate.isEqual(claimDeleteDate)) continue;
-        tx.update(task.ref, {
-          archived_at: deleteField(),
-          archived_by: deleteField(),
-          board_visible: value.warranty_previous_board_visible !== false,
-          warranty_archived_by_deletion: deleteField(),
-          warranty_previous_board_visible: deleteField(),
-          updated_at: now,
-        });
-        restoredTasks++;
-      }
-      tx.set(historyRef, {
-        warranty_id: id,
-        user_id: restoredBy,
-        content: 'Garantia restaurada da lixeira.',
-        attachment_url: null,
-        attachment_name: null,
-        created_at: now,
-      });
-      return { restoredTasks };
-    });
+    const result = await operation({ warrantyId: id, action: 'restore' });
+    return result.data;
   }, []);
 
   const updateClaimStatus = useCallback(
