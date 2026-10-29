@@ -401,38 +401,77 @@ service cloud.firestore {
     }
 
     // Only Admin SDK may change intake receipts/quota/leases.
-    // Preferencias pessoais: documento identificado pelo ID operacional do usuario.
-    // Nao usar permissao generica de outras colecoes.
-    match /user_workspace_preferences/{userId} {
-      allow read, delete: if isActive() && currentUserId() == userId;
-      allow create, update: if isActive() && currentUserId() == userId
-        && request.resource.data.keys().hasOnly(['items', 'hidden', 'schema'])
-        && request.resource.data.schema == 1
-        && request.resource.data.items is list
-        && request.resource.data.items.size() <= 20
-        && request.resource.data.hidden is list
-        && request.resource.data.hidden.size() <= 20;
-    }
-
-    match /user_calendar_notes/{userId} {
-      allow read, delete: if isActive() && currentUserId() == userId;
-      allow create, update: if isActive() && currentUserId() == userId
-        && request.resource.data.keys().hasOnly(['notes', 'schema'])
-        && request.resource.data.schema == 1
-        && request.resource.data.notes is list
-        && request.resource.data.notes.size() <= 100;
-    }
-
     match /site_warranty_receipts/{receiptId} {
       allow read, write: if false;
+    }
+
+    // GPS de corrida: o proprio motoboy inicia o compartilhamento de modo opt-in.
+    // O gestor ve apenas a ultima posicao. Nenhum historico de trajeto e armazenado.
+    function canViewMotoboyGps() {
+      return isAdmin() || (isActive() && currentUserId() == 'emp-1');
+    }
+
+    function ownsActiveRide(rideId) {
+      return isActive()
+        && exists(/databases/$(database)/documents/motoboy_assignments/$(rideId))
+        && get(/databases/$(database)/documents/motoboy_assignments/$(rideId)).data.assigned_to == currentUserId()
+        && get(/databases/$(database)/documents/motoboy_assignments/$(rideId)).data.status == 'accepted';
+    }
+
+    function validLiveGps(rideId) {
+      return request.resource.data.keys().hasOnly(['ride_id','user_id','lat','lng','accuracy','updated_at'])
+        && request.resource.data.keys().hasAll(['ride_id','user_id','lat','lng','accuracy','updated_at'])
+        && request.resource.data.ride_id == rideId
+        && request.resource.data.user_id == currentUserId()
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number
+        && request.resource.data.accuracy is number
+        && request.resource.data.lat >= -90 && request.resource.data.lat <= 90
+        && request.resource.data.lng >= -180 && request.resource.data.lng <= 180
+        && request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100000
+        && request.resource.data.updated_at == request.time;
+    }
+
+    match /motoboy_live_locations/{rideId} {
+      allow get, list: if canViewMotoboyGps();
+      allow create: if ownsActiveRide(rideId) && validLiveGps(rideId);
+      allow update: if ownsActiveRide(rideId)
+        && resource.data.user_id == currentUserId()
+        && validLiveGps(rideId);
+      allow delete: if isActive() && (resource.data.user_id == currentUserId() || canViewMotoboyGps());
+    }
+
+    function motoboyOwnSession(userId) {
+      return isActive() && currentUserId() == userId
+        && exists(currentUserPath())
+        && get(currentUserPath()).data.sectors.hasAny(['motoboys']);
+    }
+
+    function validMotoboySession(userId) {
+      return request.resource.data.keys().hasOnly(['user_id','phase','lat','lng','accuracy','updated_at'])
+        && request.resource.data.keys().hasAll(['user_id','phase','updated_at'])
+        && request.resource.data.user_id == userId
+        && request.resource.data.phase in ['delivering','returning']
+        && request.resource.data.updated_at == request.time
+        && (!('lat' in request.resource.data) ||
+          (request.resource.data.lat is number && request.resource.data.lat >= -90 && request.resource.data.lat <= 90))
+        && (!('lng' in request.resource.data) ||
+          (request.resource.data.lng is number && request.resource.data.lng >= -180 && request.resource.data.lng <= 180))
+        && (!('accuracy' in request.resource.data) ||
+          (request.resource.data.accuracy is number && request.resource.data.accuracy >= 0 && request.resource.data.accuracy <= 100000));
+    }
+
+    match /motoboy_live_sessions/{userId} {
+      allow get: if motoboyOwnSession(userId) || canViewMotoboyGps();
+      allow list: if canViewMotoboyGps();
+      allow create, update: if motoboyOwnSession(userId) && validMotoboySession(userId);
+      allow delete: if motoboyOwnSession(userId) || canViewMotoboyGps();
     }
 
     // Colecoes operacionais nao cobertas pelas regras especificas.
     match /{collection}/{document=**} {
       allow read, write: if isActive()
         && collection != 'site_warranty_receipts'
-        && collection != 'user_workspace_preferences'
-        && collection != 'user_calendar_notes'
         && collection != 'users'
         && collection != 'auth_links'
         && collection != 'user_feature_permissions'
@@ -448,6 +487,8 @@ service cloud.firestore {
         && collection != 'system_runtime'
         && collection != 'system_monitor_state'
         && collection != 'messages'
+        && collection != 'motoboy_live_locations'
+        && collection != 'motoboy_live_sessions'
         && collection != 'tasks'
         && collection != 'ryan_announcements'
         && collection != 'ryan_announcement_acks'

@@ -121,7 +121,7 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
     return () => {
       cancelled = true;
     };
-  }, [noteKey]);
+  }, [noteKey, userId]);
   const saveNotes = (next: PostIt[]) => {
     try {
       localStorage.setItem(noteKey, JSON.stringify(next));

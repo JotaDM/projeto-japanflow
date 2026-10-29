@@ -320,6 +320,9 @@ export function useFirebaseTasks(
       assignmentUpdate.accepted_at = now;
     }
 
+    // Concluir a tarefa nao conclui a corrida: exigimos foto assinada no fluxo Motoboy.
+    if (status === 'done') return;
+
     const directSnapshot = await getDocs(
       query(collection(db, 'motoboy_assignments'), where('task_id', '==', taskId), limit(1))
     );

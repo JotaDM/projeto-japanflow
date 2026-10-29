@@ -100,6 +100,7 @@ export interface MotoboyAssignment {
   location: string;
   taskId: string | null;
   scheduledFor: string | null;
+  proofUrl: string | null;
 }
 
 const toIso = (value: any): string | null => {
@@ -280,34 +281,8 @@ export const useDepartmental = () => {
             ...row.data(),
           })) as any[];
 
-          // Mantém a sincronização antiga:
-          // se a task vinculada já estiver "done", conclui a corrida automaticamente.
-          const pendingWithTaskId = raw.filter((r) => r.task_id && r.status !== 'completed');
-
-          if (pendingWithTaskId.length > 0) {
-            await Promise.all(
-              pendingWithTaskId.map(async (assignment) => {
-                try {
-                  const taskSnapshot = await getDoc(doc(db, 'tasks', assignment.task_id));
-
-                  if (taskSnapshot.exists() && taskSnapshot.data().status === 'done') {
-                    const now = Timestamp.now();
-
-                    await updateDoc(doc(db, 'motoboy_assignments', assignment.id), {
-                      status: 'completed',
-                      completed_at: now,
-                      updated_at: now,
-                    });
-
-                    assignment.status = 'completed';
-                    assignment.completed_at = now;
-                  }
-                } catch (error) {
-                  console.warn('Erro ao sincronizar corrida com tarefa:', error);
-                }
-              })
-            );
-          }
+          // Nunca conclua uma corrida apenas pelo status da task: a notinha assinada e obrigatoria.
+          // Corridas historicas permanecem intactas; novas conclusoes exigem comprovante.
 
           setMotoboyAssignments(
             raw.map((r) => ({
@@ -325,6 +300,7 @@ export const useDepartmental = () => {
               location: r.location || '',
               taskId: r.task_id || null,
               scheduledFor: toIso(r.scheduled_for) || r.scheduled_for || null,
+              proofUrl: r.proof_url || null,
             }))
           );
         },
@@ -643,26 +619,32 @@ export const useDepartmental = () => {
     []
   );
 
-  const updateMotoboyStatus = useCallback(async (id: string, status: string, notes?: string) => {
-    const update: any = {
-      status,
-      updated_at: Timestamp.now(),
-    };
+  const updateMotoboyStatus = useCallback(
+    async (id: string, status: string, notes?: string, proofUrl?: string) => {
+      if (status === 'completed' && !proofUrl)
+        throw new Error('A foto assinada e obrigatoria para concluir a corrida.');
+      const update: any = {
+        status,
+        updated_at: Timestamp.now(),
+      };
 
-    if (notes !== undefined) {
-      update.notes = notes;
-    }
+      if (notes !== undefined) {
+        update.notes = notes;
+      }
 
-    if (status === 'accepted') {
-      update.accepted_at = Timestamp.now();
-    }
+      if (status === 'accepted') {
+        update.accepted_at = Timestamp.now();
+      }
 
-    if (status === 'completed') {
-      update.completed_at = Timestamp.now();
-    }
+      if (status === 'completed') {
+        update.proof_url = proofUrl;
+        update.completed_at = Timestamp.now();
+      }
 
-    await updateDoc(doc(db, 'motoboy_assignments', id), update);
-  }, []);
+      await updateDoc(doc(db, 'motoboy_assignments', id), update);
+    },
+    []
+  );
 
   const deleteMotoboyAssignment = useCallback(
     async (id: string) => {

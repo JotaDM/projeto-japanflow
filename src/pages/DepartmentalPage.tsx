@@ -39,6 +39,7 @@ import {
   CalendarClock,
   UserX,
   UserPlus,
+  Navigation,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -51,6 +52,7 @@ import { SECTOR_LABELS, Sector } from '@/types';
 import { parseOrderInfo, stripOrderInfo, OrderInfoBadges } from '@/lib/orderInfo';
 import { uploadImage } from '@/lib/uploadImage';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog';
+import { MotoboyLocationSharing, MotoboyLiveMap } from '@/components/MotoboyLiveMap';
 
 const MotoboyTimer = ({ startTime }: { startTime: string }) => {
   const [, setTick] = useState(0);
@@ -128,6 +130,7 @@ const DepartmentalPage = () => {
   const [motoboyLoading, setMotoboyLoading] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [unifyOpen, setUnifyOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     description: string;
@@ -972,7 +975,17 @@ const DepartmentalPage = () => {
                   <Layers className="w-3 h-3 mr-1" />
                   Unificar Corridas
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => setMapOpen(true)}>
+                  <Navigation className="mr-1 h-3.5 w-3.5" /> Mapa de motoboys
+                </Button>
               </div>
+            )}
+            <MotoboyLiveMap open={mapOpen} onOpenChange={setMapOpen} getName={getName} />
+            {userSectors.includes('motoboys' as Sector) && (
+              <MotoboyLocationSharing
+                userId={currentUser.id}
+                assignments={dept.motoboyAssignments}
+              />
             )}
             <UnifyRidesDialog
               open={unifyOpen}
@@ -1537,7 +1550,7 @@ const DepartmentalPage = () => {
                                         onClick={() => dept.updateMotoboyStatus(ma.id, 'accepted')}
                                       >
                                         <Play className="w-2.5 h-2.5 mr-0.5" />
-                                        Aceitar
+                                        Iniciar
                                       </Button>
                                     )}
                                   {ma.status === 'accepted' &&
@@ -1586,7 +1599,8 @@ const DepartmentalPage = () => {
                                                 'completed',
                                                 ma.notes
                                                   ? `${ma.notes}\nCupom: ${publicUrl}`
-                                                  : `Cupom: ${publicUrl}`
+                                                  : `Cupom: ${publicUrl}`,
+                                                publicUrl
                                               );
                                               toast.success(
                                                 'Foto registrada. Corrida contabilizada como entregue!'
@@ -1606,6 +1620,17 @@ const DepartmentalPage = () => {
                                         />
                                       </label>
                                     )}
+                                  {canManageMotoboy && ma.proofUrl && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="min-h-9 text-xs"
+                                      onClick={() => setEnlargedImage(ma.proofUrl)}
+                                    >
+                                      <Receipt className="mr-1 h-3.5 w-3.5" /> Visualizar notinha
+                                    </Button>
+                                  )}
                                   {canManageMotoboy && (
                                     <Button
                                       size="sm"
