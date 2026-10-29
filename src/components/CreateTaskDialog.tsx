@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useTaskPermissions } from '@/hooks/useTaskPermissions';
 import { canCreateTasksForAll } from '@/lib/taskCreateAccess';
+import { isCarolRecipient } from '@/lib/taskRecipientAccess';
 import { Priority, Sector, SECTOR_LABELS } from '@/types';
 import {
   Dialog,
@@ -117,15 +118,26 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
     .filter((p) => p.targetType === 'sector')
     .map((p) => p.targetValue);
 
+  // Carol pode receber tarefas de qualquer colaborador ativo. A exceção é
+  // somente para o destino Carol: não amplia os demais destinatários/setores.
+  const carolRecipients = users.filter(isCarolRecipient);
   const assignableUsers = canCreateForAll
     ? users.filter((u) => (u.role === 'employee' || u.role === 'admin') && u.active !== false)
-    : users.filter((u) => allowedEmployeeIds.includes(u.id) && u.active !== false);
+    : users.filter(
+        (u) =>
+          u.active !== false &&
+          (allowedEmployeeIds.includes(u.id) ||
+            (currentUser?.active === true && isCarolRecipient(u)))
+      );
 
   const assignableSectors = canCreateForAll
     ? (Object.keys(SECTOR_LABELS) as Sector[])
     : (Object.keys(SECTOR_LABELS) as Sector[]).filter((s) => allowedSectors.includes(s));
 
-  const hasEmployeePerms = canCreateForAll || allowedEmployeeIds.length > 0;
+  const hasEmployeePerms =
+    canCreateForAll ||
+    allowedEmployeeIds.length > 0 ||
+    (currentUser?.active === true && carolRecipients.length > 0);
   const hasSectorPerms = sectorAssignEnabled && (canCreateForAll || allowedSectors.length > 0);
   const hasAnyPerms = hasEmployeePerms || hasSectorPerms;
 
@@ -361,6 +373,13 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
   const handleSubmit = async () => {
     if (!title || !currentUser) return;
     if (effectiveAssignMode === 'employee' && !assigneeId) return;
+    if (
+      effectiveAssignMode === 'employee' &&
+      !assignableUsers.some((user) => user.id === assigneeId)
+    ) {
+      toast.error('Destinatário indisponível ou sem permissão de envio.');
+      return;
+    }
     if (effectiveAssignMode === 'sector' && !sector) return;
 
     // Require payment proof when separação de pedido marked as PAGO,
@@ -416,13 +435,20 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
 
     // Send notification for assigned user
     if (effectiveAssignMode === 'employee' && assigneeId) {
-      await addDoc(collection(db, 'notifications'), {
-        user_id: assigneeId,
-        message: `Nova tarefa atribuída: ${title}`,
-        type: 'task_created',
-        read: false,
-        created_at: Timestamp.now(),
-      });
+      try {
+        await addDoc(collection(db, 'notifications'), {
+          user_id: assigneeId,
+          message: `Nova tarefa atribuída: ${title}`,
+          type: 'task_created',
+          read: false,
+          created_at: Timestamp.now(),
+        });
+      } catch (error) {
+        // A tarefa já foi criada: falha na notificação não pode interromper
+        // outros fluxos (financeiro, expedição) nem induzir um envio duplicado.
+        console.warn('Tarefa criada, mas notificação não enviada:', error);
+        toast.warning('Tarefa criada, mas a notificação não pôde ser enviada.');
+      }
     }
 
     // If separação with motoboy delivery, create a ride pending Patricia's approval
@@ -640,11 +666,13 @@ const CreateTaskDialog = ({ preselectedAssignee }: CreateTaskDialogProps) => {
       const financialOwners = users.filter(
         (user) =>
           user.active !== false &&
-          ['patricia', 'carol'].includes(user.username.trim().toLowerCase())
+          ['patricia', 'carol'].includes(user.username.trim().toLowerCase().replace(/_+$/, ''))
       );
       const financialOwnerIds = ['patricia', 'carol'].map(
         (username) =>
-          financialOwners.find((user) => user.username.trim().toLowerCase() === username)?.id
+          financialOwners.find(
+            (user) => user.username.trim().toLowerCase().replace(/_+$/, '') === username
+          )?.id
       );
       const sharedFinancialTask = hasNF || hasBoleto;
       if (sharedFinancialTask && financialOwnerIds.some((id) => !id)) {

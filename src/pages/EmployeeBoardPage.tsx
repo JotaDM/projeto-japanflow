@@ -11,6 +11,8 @@ import { canSeePickups } from '@/components/PickupsPanel';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import EmployeeCalendar from '@/components/EmployeeCalendar';
 import CustomizableWorkspace from '@/components/CustomizableWorkspace';
+import TaskSummaryWidget from '@/components/TaskSummaryWidget';
+import QuickLinksWidget from '@/components/QuickLinksWidget';
 import DailyCompletedCounter from '@/components/DailyCompletedCounter';
 import TaskHistoryDialog from '@/components/TaskHistoryDialog';
 import WorkScheduleBanner from '@/components/WorkScheduleBanner';
@@ -185,6 +187,16 @@ const EmployeeBoardPage = () => {
                 </section>
               </>
             ),
+          },
+          {
+            id: 'summary',
+            label: 'Resumo das tarefas',
+            content: <TaskSummaryWidget tasks={tasks} />,
+          },
+          {
+            id: 'shortcuts',
+            label: 'Atalhos',
+            content: <QuickLinksWidget />,
           },
           {
             id: 'calendar',

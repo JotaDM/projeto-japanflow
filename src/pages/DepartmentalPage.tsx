@@ -115,6 +115,7 @@ const DepartmentalPage = () => {
     isAdmin || userSectors.some((s) => ['garantias', 'vendas', 'expedicao'].includes(s));
 
   // Dialog states
+  const [rideUploading, setRideUploading] = useState<string | null>(null);
   const [dialog, setDialog] = useState<string | null>(null);
   const [form, setForm] = useState<any>({});
   const [trackingSearchClient, setTrackingSearchClient] = useState('');
@@ -1389,8 +1390,8 @@ const DepartmentalPage = () => {
               return (
                 <div
                   className={cn(
-                    'grid gap-4',
-                    motoboyIds.length >= 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
+                    'grid min-w-0 grid-cols-1 gap-3 lg:gap-4',
+                    motoboyIds.length >= 2 && 'xl:grid-cols-2'
                   )}
                 >
                   {motoboyIds.map((motoboyId) => {
@@ -1399,7 +1400,7 @@ const DepartmentalPage = () => {
                       <div
                         key={motoboyId}
                         className={cn(
-                          'space-y-2.5 rounded-2xl border border-border/60 bg-muted/10 p-3',
+                          'min-w-0 space-y-2.5 overflow-hidden rounded-2xl border border-border/60 bg-muted/10 p-3 sm:p-4',
                           isUnassignedGroup && 'border-warning/35 bg-warning/5'
                         )}
                       >
@@ -1432,11 +1433,11 @@ const DepartmentalPage = () => {
                               <div
                                 key={ma.id}
                                 className={cn(
-                                  'jf-interactive rounded-xl border border-border/70 bg-card p-2.5 text-[11px] hover:bg-muted/20',
+                                  'jf-interactive min-w-0 rounded-xl border border-border/70 bg-card p-3 text-xs hover:bg-muted/20 sm:p-3.5',
                                   isIdle && 'ring-1 ring-destructive/50'
                                 )}
                               >
-                                <div className="flex items-start justify-between gap-1">
+                                <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                                   <p className="font-medium truncate leading-tight">
                                     {ma.description}
                                   </p>
@@ -1507,7 +1508,7 @@ const DepartmentalPage = () => {
                                     )}
                                   </div>
                                 )}
-                                <div className="flex gap-1 mt-1 flex-wrap">
+                                <div className="mt-3 flex min-w-0 flex-wrap gap-2">
                                   {ma.assignedTo === null &&
                                     (userSectors.includes('motoboys' as Sector) ||
                                       canManageMotoboy) && (
@@ -1541,18 +1542,35 @@ const DepartmentalPage = () => {
                                     )}
                                   {ma.status === 'accepted' &&
                                     (currentUser.id === ma.assignedTo || isAdmin) && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-5 text-[9px] px-1.5"
-                                        onClick={() => {
-                                          const input = document.createElement('input');
-                                          input.type = 'file';
-                                          input.accept = 'image/*';
-                                          input.capture = 'environment';
-                                          input.onchange = async (ev: any) => {
-                                            const file = ev.target.files?.[0];
+                                      <label
+                                        className={cn(
+                                          'inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border bg-primary px-3 py-2 text-sm font-medium text-primary-foreground sm:w-auto',
+                                          rideUploading === ma.id &&
+                                            'pointer-events-none opacity-60'
+                                        )}
+                                      >
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        {rideUploading === ma.id
+                                          ? 'Enviando comprovante...'
+                                          : 'Fotografar notinha assinada'}
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          capture="environment"
+                                          className="sr-only"
+                                          disabled={rideUploading !== null}
+                                          aria-label="Foto da notinha assinada para finalizar a corrida"
+                                          onChange={async (event) => {
+                                            const file = event.currentTarget.files?.[0];
+                                            event.currentTarget.value = '';
                                             if (!file) return;
+                                            if (!file.type.startsWith('image/')) {
+                                              toast.error(
+                                                'Selecione uma foto da notinha assinada.'
+                                              );
+                                              return;
+                                            }
+                                            setRideUploading(ma.id);
                                             try {
                                               const { publicUrl } = await uploadImage(file, {
                                                 pathPrefix: 'receipts',
@@ -1561,6 +1579,8 @@ const DepartmentalPage = () => {
                                                 sourceField: 'notes',
                                                 uploadedBy: currentUser.id,
                                               });
+                                              if (!publicUrl)
+                                                throw new Error('Comprovante sem referência');
                                               await dept.updateMotoboyStatus(
                                                 ma.id,
                                                 'completed',
@@ -1568,17 +1588,23 @@ const DepartmentalPage = () => {
                                                   ? `${ma.notes}\nCupom: ${publicUrl}`
                                                   : `Cupom: ${publicUrl}`
                                               );
-                                              toast.success('Corrida concluída com foto!');
-                                            } catch {
-                                              toast.error('Erro ao enviar foto');
+                                              toast.success(
+                                                'Foto registrada. Corrida contabilizada como entregue!'
+                                              );
+                                            } catch (error) {
+                                              console.error(
+                                                '[motoboy] falha ao concluir corrida',
+                                                error
+                                              );
+                                              toast.error(
+                                                'Não foi possível concluir. A corrida permanece em aberto; tente novamente.'
+                                              );
+                                            } finally {
+                                              setRideUploading(null);
                                             }
-                                          };
-                                          input.click();
-                                        }}
-                                      >
-                                        <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
-                                        Concluir
-                                      </Button>
+                                          }}
+                                        />
+                                      </label>
                                     )}
                                   {canManageMotoboy && (
                                     <Button

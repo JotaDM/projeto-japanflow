@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, DragEvent } from 'react';
 import {
   ChevronLeft,
@@ -49,8 +49,10 @@ export default function CustomizableWorkspace({
   const [layout, setLayout] = useState<Item[]>(defaults);
   const [draft, setDraft] = useState<Item[]>(defaults);
   const [editing, setEditing] = useState(false);
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [draftHidden, setDraftHidden] = useState<string[]>([]);
+  const editingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [hidden, setHidden] = useState<string[]>(['summary', 'shortcuts']);
+  const [draftHidden, setDraftHidden] = useState<string[]>(['summary', 'shortcuts']);
   const [widgetPicker, setWidgetPicker] = useState(false);
   const [open, setOpen] = useState(false);
   const activeSideCount = (editing ? draft : layout).filter(
@@ -71,7 +73,12 @@ export default function CustomizableWorkspace({
     let cancelled = false;
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(key) || 'null');
-      const next = valid(saved, blocks) ? saved : initial(blocks);
+      const next = valid(saved, blocks)
+        ? [
+            ...saved,
+            ...initial(blocks).filter((item) => !saved.some((existing) => existing.id === item.id)),
+          ]
+        : initial(blocks);
       setLayout(next);
       setDraft(next);
       const storedHidden = JSON.parse(localStorage.getItem(`${key}:hidden`) || '[]');
@@ -80,19 +87,29 @@ export default function CustomizableWorkspace({
             (id): id is string => typeof id === 'string' && blocks.some((b) => b.id === id)
           )
         : [];
+      // New optional widgets start hidden unless user previously saved an explicit selection.
+      if (!localStorage.getItem(`${key}:hidden`)) safeHidden.push('summary', 'shortcuts');
       setHidden(safeHidden);
       setDraftHidden(safeHidden);
     } catch {
       setLayout(initial(blocks));
       setDraft(initial(blocks));
     }
+    editingRef.current = false;
     setEditing(false);
     if (auth.currentUser && userId) {
       getDoc(preferenceDoc(userId))
         .then((snapshot) => {
-          if (cancelled || !snapshot.exists()) return;
+          if (cancelled || editingRef.current || !snapshot.exists()) return;
           const data = snapshot.data();
-          const incoming = valid(data.items, blocks) ? data.items : null;
+          const incoming = valid(data.items, blocks)
+            ? [
+                ...data.items,
+                ...initial(blocks).filter(
+                  (item) => !data.items.some((existing: Item) => existing.id === item.id)
+                ),
+              ]
+            : null;
           const incomingHidden = Array.isArray(data.hidden)
             ? data.hidden.filter(
                 (id: unknown): id is string =>
@@ -102,8 +119,13 @@ export default function CustomizableWorkspace({
           if (incoming) {
             setLayout(incoming);
             setDraft(incoming);
-            setHidden(incomingHidden);
-            setDraftHidden(incomingHidden);
+            const cloudHidden = [...incomingHidden];
+            for (const id of ['summary', 'shortcuts']) {
+              if (!data.items.some((item: Item) => item.id === id) && !cloudHidden.includes(id))
+                cloudHidden.push(id);
+            }
+            setHidden(cloudHidden);
+            setDraftHidden(cloudHidden);
           }
         })
         .catch(() => {
@@ -118,6 +140,7 @@ export default function CustomizableWorkspace({
     const start = () => {
       setDraft(layout);
       setDraftHidden(hidden);
+      editingRef.current = true;
       setEditing(true);
       setOpen(true);
     };
@@ -145,41 +168,51 @@ export default function CustomizableWorkspace({
     setDragged(null);
   };
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
-      localStorage.setItem(key, JSON.stringify(draft));
-      localStorage.setItem(`${key}:hidden`, JSON.stringify(draftHidden));
+      // Confirmacao da nuvem antes de sinalizar sucesso evita divergencia silenciosa.
       if (auth.currentUser && userId) {
         await setDoc(preferenceDoc(userId), { items: draft, hidden: draftHidden, schema: SCHEMA });
       }
+      localStorage.setItem(key, JSON.stringify(draft));
+      localStorage.setItem(`${key}:hidden`, JSON.stringify(draftHidden));
       setLayout(draft);
       setHidden(draftHidden);
+      editingRef.current = false;
       setEditing(false);
       setWidgetPicker(false);
       toast.success(auth.currentUser ? 'Layout sincronizado.' : 'Layout salvo neste navegador.');
     } catch {
-      toast.error('Não foi possível salvar o layout neste navegador.');
+      // A edicao fica aberta para permitir nova tentativa sem perda de trabalho.
+      toast.error('Falha ao sincronizar. Confira sua conexão e tente salvar novamente.');
+    } finally {
+      setSaving(false);
     }
   };
-  const reset = () => {
+  const reset = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
+      if (auth.currentUser && userId) {
+        await setDoc(preferenceDoc(userId), { items: defaults, hidden: [], schema: SCHEMA });
+      }
       localStorage.removeItem(key);
       localStorage.removeItem(`${key}:hidden`);
+      setDraft(defaults);
+      setLayout(defaults);
+      setHidden([]);
+      setDraftHidden([]);
+      editingRef.current = false;
+      setEditing(false);
+      setWidgetPicker(false);
+      setOpen(false);
+      toast.success('Layout original restaurado.');
     } catch {
-      /* armazenamento indisponível */
+      toast.error('Não foi possível restaurar o layout. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
-    setDraft(defaults);
-    setLayout(defaults);
-    setHidden([]);
-    setDraftHidden([]);
-    if (auth.currentUser) {
-      void setDoc(preferenceDoc(userId), { items: defaults, hidden: [], schema: SCHEMA }).catch(
-        () => toast.error('Não foi possível restaurar na nuvem.')
-      );
-    }
-    setEditing(false);
-    setWidgetPicker(false);
-    setOpen(false);
-    toast.success('Layout original restaurado.');
   };
   const active = editing ? draft : layout;
   const activeHidden = editing ? draftHidden : hidden;
@@ -246,7 +279,11 @@ export default function CustomizableWorkspace({
         )}
         {editing && (
           <>
-            <button className="rounded-xl border px-3 py-2 text-sm" onClick={reset}>
+            <button
+              className="rounded-xl border px-3 py-2 text-sm"
+              onClick={() => void reset()}
+              disabled={saving}
+            >
               <RotateCcw className="mr-1 inline h-4 w-4" />
               Restaurar padrão
             </button>
@@ -256,8 +293,8 @@ export default function CustomizableWorkspace({
                 setDraft(layout);
                 setDraftHidden(hidden);
                 setWidgetPicker(false);
+                editingRef.current = false;
                 setEditing(false);
-                setWidgetPicker(false);
               }}
             >
               <X className="mr-1 inline h-4 w-4" />
@@ -265,10 +302,11 @@ export default function CustomizableWorkspace({
             </button>
             <button
               className="rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground"
-              onClick={save}
+              onClick={() => void save()}
+              disabled={saving}
             >
               <Save className="mr-1 inline h-4 w-4" />
-              Salvar layout
+              {saving ? 'Salvando...' : 'Salvar layout'}
             </button>
           </>
         )}
@@ -305,7 +343,7 @@ export default function CustomizableWorkspace({
       {editing && (
         <p role="status" className="text-xs text-muted-foreground">
           Arraste os blocos para reorganizar. Em telas touch, use “Mover para lateral/quadro” e
-          “Último”. As preferências ficam neste navegador.
+          “Último”. As preferências são sincronizadas quando você está autenticado.
         </p>
       )}
       <div className="min-w-0">
