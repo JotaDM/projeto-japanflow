@@ -27,6 +27,7 @@ const SharedDocsPage = lazy(() => import('@/pages/SharedDocsPage'));
 const InternalPoliciesPage = lazy(() => import('@/pages/InternalPoliciesPage'));
 const ChatHistoryPage = lazy(() => import('@/pages/ChatHistoryPage'));
 const GASPage = lazy(() => import('@/pages/GASPage'));
+const SentinelPage = lazy(() => import('@/pages/SentinelPage'));
 const BacklogPage = lazy(() => import('@/pages/BacklogPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
                 <Route path="/politicas-internas" element={<InternalPoliciesPage />} />
                 <Route path="/historico-conversas" element={<ChatHistoryPage />} />
                 <Route path="/gas" element={<GASPage />} />
+                <Route path="/sentinel" element={<SentinelPage />} />
                 <Route path="/backlog" element={<BacklogPage />} />
               </Route>
               <Route path="/" element={<Navigate to="/login" replace />} />
