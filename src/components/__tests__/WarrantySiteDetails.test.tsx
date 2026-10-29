@@ -143,7 +143,7 @@ test('exclusão exige confirmação e chama a função correta', async () => {
   await click('Excluir');
   expect(mocks.softDeleteClaim).not.toHaveBeenCalled();
   await click('Excluir pedido de garantia?');
-  expect(mocks.softDeleteClaim).toHaveBeenCalledWith('site-test', 'emp-test');
+  expect(mocks.softDeleteClaim).toHaveBeenCalledWith('site-test');
 });
 
 test('garantia excluída aparece na lixeira e pode ser restaurada', async () => {
@@ -153,7 +153,7 @@ test('garantia excluída aparece na lixeira e pode ser restaurada', async () => 
   await click('Lixeira');
   expect(document.body.textContent).toContain('Cliente Fictício React');
   await click('Restaurar garantia');
-  expect(mocks.restoreClaim).toHaveBeenCalledWith('site-test', 'emp-test');
+  expect(mocks.restoreClaim).toHaveBeenCalledWith('site-test');
 });
 
 
@@ -192,7 +192,7 @@ test('funcionário SITE pode excluir solicitação recebida do site', async () =
   await click('Cliente Fictício React');
   await click('Excluir');
   await click('Excluir pedido de garantia?');
-  expect(mocks.softDeleteClaim).toHaveBeenCalledWith('site-test', 'emp-site');
+  expect(mocks.softDeleteClaim).toHaveBeenCalledWith('site-test');
 });
 
 test('funcionário de Expedição sem Site não pode excluir a solicitação do site', async () => {
@@ -209,7 +209,7 @@ test('funcionário SITE pode restaurar a solicitação recebida pelo site', asyn
   await mount();
   await click('Lixeira');
   await click('Restaurar garantia');
-  expect(mocks.restoreClaim).toHaveBeenCalledWith('site-test', 'emp-site');
+  expect(mocks.restoreClaim).toHaveBeenCalledWith('site-test');
 });
 
 
