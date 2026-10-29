@@ -19,6 +19,8 @@ import { Plus, Pencil, Trash2, CalendarDays, Clock, Bell, StickyNote } from 'luc
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import AICalendarCreator from '@/components/AICalendarCreator';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 interface EmployeeCalendarProps {
   userId: string;
@@ -77,6 +79,20 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
   const [postIts, setPostIts] = useState<PostIt[]>([]);
   const [noteText, setNoteText] = useState('');
   useEffect(() => {
+    let cancelled = false;
+    const safeNotes = (data: unknown): PostIt[] =>
+      Array.isArray(data)
+        ? data
+            .filter(
+              (item): item is PostIt =>
+                !!item &&
+                typeof item.id === 'string' &&
+                typeof item.date === 'string' &&
+                typeof item.text === 'string' &&
+                item.text.length <= 400
+            )
+            .slice(0, 100)
+        : [];
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(noteKey) || '[]');
       setPostIts(
@@ -93,11 +109,27 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
     } catch {
       setPostIts([]);
     }
+    if (auth.currentUser && userId) {
+      getDoc(doc(db, 'user_calendar_notes', userId))
+        .then((snapshot) => {
+          if (!cancelled && snapshot.exists()) setPostIts(safeNotes(snapshot.data().notes));
+        })
+        .catch(() => {
+          /* Usar anotacoes locais em caso de erro. */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [noteKey]);
   const saveNotes = (next: PostIt[]) => {
     try {
       localStorage.setItem(noteKey, JSON.stringify(next));
       setPostIts(next);
+      if (auth.currentUser)
+        void setDoc(doc(db, 'user_calendar_notes', userId), { notes: next, schema: 1 }).catch(() =>
+          toast.error('Anotação salva apenas neste navegador.')
+        );
     } catch {
       toast.error('Não foi possível salvar a anotação.');
     }
@@ -116,6 +148,10 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
     try {
       localStorage.setItem(noteKey, JSON.stringify(next));
       setPostIts(next);
+      if (auth.currentUser)
+        void setDoc(doc(db, 'user_calendar_notes', userId), { notes: next, schema: 1 }).catch(() =>
+          toast.error('Anotação salva apenas neste navegador.')
+        );
       setNoteText('');
     } catch {
       toast.error('Não foi possível salvar a anotação.');

@@ -63,6 +63,28 @@ export default function SentinelPage() {
           </strong>
         </div>
       </section>
+      <section className="grid gap-3 md:grid-cols-3" aria-label="Indicadores do Cost Guard">
+        {(
+          [
+            ['Leituras', guard.readsPercentage],
+            ['Gravações', guard.writesPercentage],
+            ['Exclusões', guard.deletesPercentage],
+          ] as const
+        ).map(([label, percentage]) => (
+          <div key={label} className="rounded-2xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground">{label} · utilização reportada</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums">
+              {unavailable ? '—' : `${percentage.toFixed(1)}%`}
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${unavailable ? 0 : Math.min(100, Math.max(0, percentage))}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </section>
       <section className="rounded-2xl border bg-card p-5" aria-live="polite">
         <h2 className="font-semibold">Estado da operação</h2>
         <p className="mt-2 text-sm text-muted-foreground">

@@ -401,6 +401,28 @@ service cloud.firestore {
     }
 
     // Only Admin SDK may change intake receipts/quota/leases.
+    // Preferencias pessoais: documento identificado pelo ID operacional do usuario.
+    // Nao usar permissao generica de outras colecoes.
+    match /user_workspace_preferences/{userId} {
+      allow read, delete: if isActive() && currentUserId() == userId;
+      allow create, update: if isActive() && currentUserId() == userId
+        && request.resource.data.keys().hasOnly(['items', 'hidden', 'schema'])
+        && request.resource.data.schema == 1
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 20
+        && request.resource.data.hidden is list
+        && request.resource.data.hidden.size() <= 20;
+    }
+
+    match /user_calendar_notes/{userId} {
+      allow read, delete: if isActive() && currentUserId() == userId;
+      allow create, update: if isActive() && currentUserId() == userId
+        && request.resource.data.keys().hasOnly(['notes', 'schema'])
+        && request.resource.data.schema == 1
+        && request.resource.data.notes is list
+        && request.resource.data.notes.size() <= 100;
+    }
+
     match /site_warranty_receipts/{receiptId} {
       allow read, write: if false;
     }
@@ -409,6 +431,8 @@ service cloud.firestore {
     match /{collection}/{document=**} {
       allow read, write: if isActive()
         && collection != 'site_warranty_receipts'
+        && collection != 'user_workspace_preferences'
+        && collection != 'user_calendar_notes'
         && collection != 'users'
         && collection != 'auth_links'
         && collection != 'user_feature_permissions'

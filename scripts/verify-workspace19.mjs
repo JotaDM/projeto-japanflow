@@ -1,0 +1,13 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+const workspace = read('src/components/CustomizableWorkspace.tsx');
+const rules = read('firestore.rules');
+const calendar = read('src/components/EmployeeCalendar.tsx');
+assert.match(workspace, /Biblioteca de widgets/);
+assert.match(workspace, /user_workspace_preferences/);
+assert.match(calendar, /user_calendar_notes/);
+assert.match(rules, /match \/user_workspace_preferences\/\{userId\}/);
+assert.match(rules, /match \/user_calendar_notes\/\{userId\}/);
+assert.match(rules, /currentUserId\(\) == userId/);
+console.log('Verificacao estrutural do Workspace 1.9: OK');

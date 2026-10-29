@@ -1,16 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode, DragEvent } from 'react';
-import { ChevronLeft, ChevronRight, GripVertical, RotateCcw, Save, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  RotateCcw,
+  Save,
+  X,
+  LayoutGrid,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 type Slot = 'main' | 'side';
 type Item = { id: string; slot: Slot };
+const preferenceDoc = (userId: string) => doc(db, 'user_workspace_preferences', userId);
 export type WorkspaceBlock = { id: string; label: string; content: ReactNode };
 const SCHEMA = 1;
 const initial = (blocks: WorkspaceBlock[]): Item[] =>
   blocks.map((b) => ({ id: b.id, slot: b.id === 'calendar' ? 'side' : 'main' }));
 function valid(data: unknown, blocks: WorkspaceBlock[]): data is Item[] {
-  if (!Array.isArray(data) || data.length !== blocks.length) return false;
+  if (!Array.isArray(data) || data.length > blocks.length) return false;
   const ids = blocks.map((b) => b.id);
   return (
     data.every(
@@ -19,7 +30,7 @@ function valid(data: unknown, blocks: WorkspaceBlock[]): data is Item[] {
         typeof item.id === 'string' &&
         ids.includes(item.id) &&
         (item.slot === 'main' || item.slot === 'side')
-    ) && new Set(data.map((x) => x.id)).size === ids.length
+    ) && new Set(data.map((x) => x.id)).size === data.length
   );
 }
 
@@ -38,8 +49,13 @@ export default function CustomizableWorkspace({
   const [layout, setLayout] = useState<Item[]>(defaults);
   const [draft, setDraft] = useState<Item[]>(defaults);
   const [editing, setEditing] = useState(false);
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [draftHidden, setDraftHidden] = useState<string[]>([]);
+  const [widgetPicker, setWidgetPicker] = useState(false);
   const [open, setOpen] = useState(false);
-  const activeSideCount = (editing ? draft : layout).filter((item) => item.slot === 'side').length;
+  const activeSideCount = (editing ? draft : layout).filter(
+    (item) => item.slot === 'side' && !(editing ? draftHidden : hidden).includes(item.id)
+  ).length;
   const sideVisible = open && activeSideCount > 0;
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -52,26 +68,62 @@ export default function CustomizableWorkspace({
   }, [sideVisible]);
   const [dragged, setDragged] = useState<string | null>(null);
   useEffect(() => {
+    let cancelled = false;
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(key) || 'null');
       const next = valid(saved, blocks) ? saved : initial(blocks);
       setLayout(next);
       setDraft(next);
+      const storedHidden = JSON.parse(localStorage.getItem(`${key}:hidden`) || '[]');
+      const safeHidden = Array.isArray(storedHidden)
+        ? storedHidden.filter(
+            (id): id is string => typeof id === 'string' && blocks.some((b) => b.id === id)
+          )
+        : [];
+      setHidden(safeHidden);
+      setDraftHidden(safeHidden);
     } catch {
       setLayout(initial(blocks));
       setDraft(initial(blocks));
     }
     setEditing(false);
+    if (auth.currentUser && userId) {
+      getDoc(preferenceDoc(userId))
+        .then((snapshot) => {
+          if (cancelled || !snapshot.exists()) return;
+          const data = snapshot.data();
+          const incoming = valid(data.items, blocks) ? data.items : null;
+          const incomingHidden = Array.isArray(data.hidden)
+            ? data.hidden.filter(
+                (id: unknown): id is string =>
+                  typeof id === 'string' && blocks.some((b) => b.id === id)
+              )
+            : [];
+          if (incoming) {
+            setLayout(incoming);
+            setDraft(incoming);
+            setHidden(incomingHidden);
+            setDraftHidden(incomingHidden);
+          }
+        })
+        .catch(() => {
+          /* Continua com preferências locais se a rede estiver indisponível. */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [key, signature]);
   useEffect(() => {
     const start = () => {
       setDraft(layout);
+      setDraftHidden(hidden);
       setEditing(true);
       setOpen(true);
     };
     window.addEventListener('jf:workspace:customize', start);
     return () => window.removeEventListener('jf:workspace:customize', start);
-  }, [layout]);
+  }, [layout, hidden]);
   const move = (id: string, slot: Slot, before?: string) => {
     setDraft((old) => {
       const item = old.find((x) => x.id === id);
@@ -92,12 +144,18 @@ export default function CustomizableWorkspace({
     if (id) move(id, slot, before);
     setDragged(null);
   };
-  const save = () => {
+  const save = async () => {
     try {
       localStorage.setItem(key, JSON.stringify(draft));
+      localStorage.setItem(`${key}:hidden`, JSON.stringify(draftHidden));
+      if (auth.currentUser && userId) {
+        await setDoc(preferenceDoc(userId), { items: draft, hidden: draftHidden, schema: SCHEMA });
+      }
       setLayout(draft);
+      setHidden(draftHidden);
       setEditing(false);
-      toast.success('Layout salvo neste navegador.');
+      setWidgetPicker(false);
+      toast.success(auth.currentUser ? 'Layout sincronizado.' : 'Layout salvo neste navegador.');
     } catch {
       toast.error('Não foi possível salvar o layout neste navegador.');
     }
@@ -105,20 +163,32 @@ export default function CustomizableWorkspace({
   const reset = () => {
     try {
       localStorage.removeItem(key);
+      localStorage.removeItem(`${key}:hidden`);
     } catch {
       /* armazenamento indisponível */
     }
     setDraft(defaults);
     setLayout(defaults);
+    setHidden([]);
+    setDraftHidden([]);
+    if (auth.currentUser) {
+      void setDoc(preferenceDoc(userId), { items: defaults, hidden: [], schema: SCHEMA }).catch(
+        () => toast.error('Não foi possível restaurar na nuvem.')
+      );
+    }
     setEditing(false);
+    setWidgetPicker(false);
     setOpen(false);
     toast.success('Layout original restaurado.');
   };
   const active = editing ? draft : layout;
-  const hasSidebarWidgets = active.some((item) => item.slot === 'side');
+  const activeHidden = editing ? draftHidden : hidden;
+  const hasSidebarWidgets = active.some(
+    (item) => item.slot === 'side' && !activeHidden.includes(item.id)
+  );
   const render = (slot: Slot) =>
     active
-      .filter((x) => x.slot === slot)
+      .filter((x) => x.slot === slot && !activeHidden.includes(x.id))
       .map((item) => {
         const block = blocks.find((b) => b.id === item.id);
         if (!block) return null;
@@ -166,6 +236,15 @@ export default function CustomizableWorkspace({
       <div className="flex flex-wrap items-center justify-end gap-2">
         {actions}
         {editing && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-muted"
+            onClick={() => setWidgetPicker((value) => !value)}
+          >
+            <LayoutGrid className="h-4 w-4" /> Adicionar widgets
+          </button>
+        )}
+        {editing && (
           <>
             <button className="rounded-xl border px-3 py-2 text-sm" onClick={reset}>
               <RotateCcw className="mr-1 inline h-4 w-4" />
@@ -175,7 +254,10 @@ export default function CustomizableWorkspace({
               className="rounded-xl border px-3 py-2 text-sm"
               onClick={() => {
                 setDraft(layout);
+                setDraftHidden(hidden);
+                setWidgetPicker(false);
                 setEditing(false);
+                setWidgetPicker(false);
               }}
             >
               <X className="mr-1 inline h-4 w-4" />
@@ -191,6 +273,35 @@ export default function CustomizableWorkspace({
           </>
         )}
       </div>
+      {editing && widgetPicker && (
+        <section className="rounded-xl border bg-card p-4" aria-label="Biblioteca de widgets">
+          <h3 className="mb-3 font-semibold">Biblioteca de widgets</h3>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {blocks.map((block) => (
+              <label
+                key={block.id}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={!draftHidden.includes(block.id)}
+                  onChange={(event) =>
+                    setDraftHidden((current) =>
+                      event.target.checked
+                        ? current.filter((id) => id !== block.id)
+                        : [...current, block.id]
+                    )
+                  }
+                />
+                {block.label}
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Somente widgets disponíveis para sua conta. Clique em Salvar layout para confirmar.
+          </p>
+        </section>
+      )}
       {editing && (
         <p role="status" className="text-xs text-muted-foreground">
           Arraste os blocos para reorganizar. Em telas touch, use “Mover para lateral/quadro” e
