@@ -134,7 +134,6 @@ const DepartmentalPage = () => {
   const [motoboyLoading, setMotoboyLoading] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [unifyOpen, setUnifyOpen] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     description: string;
@@ -988,7 +987,6 @@ const DepartmentalPage = () => {
                 )}
               </div>
             )}
-            <MotoboyLiveMap open={mapOpen} onOpenChange={setMapOpen} getName={getName} />
             {userSectors.includes('motoboys' as Sector) && (
               <MotoboyLocationSharing
                 userId={currentUser.id}
