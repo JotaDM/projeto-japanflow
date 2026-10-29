@@ -28,7 +28,7 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_HOST;
 const firebaseAdmin = require('firebase-admin');
 const { initializeApp, deleteApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword } = require('firebase/auth');
-const { getFirestore: clientFirestore, connectFirestoreEmulator, doc, updateDoc, deleteDoc, writeBatch, collection, addDoc, serverTimestamp } = require('firebase/firestore');
+const { getFirestore: clientFirestore, connectFirestoreEmulator, doc, updateDoc, deleteDoc, setDoc, collection, addDoc, serverTimestamp } = require('firebase/firestore');
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require('firebase/functions');
 
 firebaseAdmin.initializeApp({ projectId: PROJECT });
@@ -161,26 +161,33 @@ async function main() {
     'CLIENTE FICTICIO — EDICAO DE TESTE');
   log('edição normal da garantia pelo autor continua funcionando');
 
-  // Compatibilidade: criação manual e tarefa vinculada pelo navegador, em um batch.
+  // Fluxo real da interface: cria garantia e depois tarefa em addDoc separado.
   const manualFromClientId = `qa_${runId}_created_by_client`;
   const manualTaskId = `qa_task_${runId}_created_by_client`;
-  const batch = writeBatch(owner.firestore);
-  batch.set(doc(owner.firestore, 'warranty_claims', manualFromClientId), {
+  await setDoc(doc(owner.firestore, 'warranty_claims', manualFromClientId), {
     requested_by: owner.employeeId,
-    origin: 'manual',
     customer_name: 'CLIENTE FICTICIO — CRIADO PELO CLIENTE',
     status: 'pending',
     created_at: serverTimestamp(),
   });
-  batch.set(doc(owner.firestore, 'tasks', manualTaskId), {
+  await setDoc(doc(owner.firestore, 'tasks', manualTaskId), {
     warranty_id: manualFromClientId,
     board_visible: true,
     sector: 'garantias',
+    title: '🛡️ Garantia: CLIENTE FICTICIO - ITEM',
+    description: 'Nova garantia fictícia',
+    status: 'todo',
+    priority: 'high',
+    assignee_id: 'emp-12',
+    created_by: owner.employeeId,
+    deadline: '2026-11-01',
+    status_history: [{ status: 'todo', enteredAt: new Date().toISOString() }],
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
   });
-  await batch.commit();
   assert((await db.doc(`warranty_claims/${manualFromClientId}`).get()).exists);
   assert((await db.doc(`tasks/${manualTaskId}`).get()).exists);
-  log('criação manual de garantia e tarefa vinculada pelo navegador continua funcionando');
+  log('criação manual sequencial da ficha e tarefa funciona');
 
   // Histórico retornado pela Function não pode ser alterado ou apagado diretamente.
   const historyDoc = doc(owner.firestore, 'warranty_updates', history.docs[0].id);
@@ -205,6 +212,57 @@ async function main() {
     updateDoc(doc(owner.firestore, 'tasks', own.taskIds[0]), { archived_at: new Date(), board_visible: false }));
   await expectDeny('cliente não exclui fisicamente tarefa de garantia', () =>
     deleteDoc(doc(owner.firestore, 'tasks', own.taskIds[0])));
+
+  // QA: vínculos indevidos e metadados de histórico, sem dados reais.
+  await expectDeny('colega não vincula tarefa à garantia de terceiro', () =>
+    addDoc(collection(colleague.firestore, 'tasks'), {
+      warranty_id: own.id, created_by: colleague.employeeId,
+      sector: 'garantias', board_visible: true, assignee_id: 'emp-12',
+      status: 'todo', priority: 'high',
+    }));
+  await expectDeny('autor não usa funcionário destinatário diferente', () =>
+    addDoc(collection(owner.firestore, 'tasks'), {
+      warranty_id: own.id, created_by: owner.employeeId,
+      sector: 'garantias', board_visible: true, assignee_id: 'emp-999',
+      status: 'todo', priority: 'high',
+    }));
+  await expectDeny('autor não cria tarefa vinculada pré-arquivada', () =>
+    addDoc(collection(owner.firestore, 'tasks'), {
+      warranty_id: own.id, created_by: owner.employeeId,
+      sector: 'garantias', board_visible: true, assignee_id: 'emp-12',
+      status: 'todo', priority: 'high', archived_at: serverTimestamp(),
+    }));
+  await expectDeny('autor não vincula tarefa a garantia inexistente', () =>
+    addDoc(collection(owner.firestore, 'tasks'), {
+      warranty_id: `qa_inexistente_${runId}`, created_by: owner.employeeId,
+      sector: 'garantias', board_visible: true, assignee_id: 'emp-12',
+      status: 'todo', priority: 'high',
+    }));
+  const forgedSite = await createClaim('qa-site-linked', owner.employeeId, { origin: 'site', tasks: 0 });
+  await expectDeny('autor não cria tarefa de garantia originada pelo site', () =>
+    addDoc(collection(owner.firestore, 'tasks'), {
+      warranty_id: forgedSite.id, created_by: owner.employeeId,
+      sector: 'garantias', board_visible: true, assignee_id: 'emp-12',
+      status: 'todo', priority: 'high',
+    }));
+  await expectDeny('cliente não injeta campo system_event no histórico', () =>
+    addDoc(collection(owner.firestore, 'warranty_updates'), {
+      warranty_id: own.id, user_id: owner.employeeId,
+      content: 'Nota comum', created_at: serverTimestamp(), system_event: true,
+    }));
+  await expectDeny('cliente não cria histórico para garantia inexistente', () =>
+    addDoc(collection(owner.firestore, 'warranty_updates'), {
+      warranty_id: `qa_inexistente_${runId}`, user_id: owner.employeeId,
+      content: 'Nota comum', created_at: serverTimestamp(),
+    }));
+  const note = await addDoc(collection(owner.firestore, 'warranty_updates'), {
+    warranty_id: own.id, user_id: owner.employeeId,
+    content: 'Nota de acompanhamento fictícia',
+    attachment_url: null, attachment_name: null,
+    created_at: serverTimestamp(),
+  });
+  assert((await db.doc(`warranty_updates/${note.id}`).get()).exists);
+  log('nota legítima do funcionário continua permitida');
 
   // Site: apenas administrador, TI ou funcionário com setor Site.
   const siteClaim = await createClaim('site-claim', 'site', { origin: 'site', tasks: 1 });

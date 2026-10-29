@@ -302,9 +302,38 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Criar uma tarefa vinculada exige que o funcionário seja o autor da
+    // garantia manual existente. O frontend cria ficha e tarefa em duas operações,
+    // NÃO no mesmo batch. A Cloud Function usa Admin SDK para tarefas do site.
+    function mayCreateLinkedWarrantyTask() {
+      let claimId = request.resource.data.get('warranty_id', '');
+      let claimPath = /databases/$(database)/documents/warranty_claims/$(claimId);
+      return canSeeWarrantyModule()
+        && claimId is string
+        && claimId.matches('^[A-Za-z0-9_-]{1,180}$')
+        && request.resource.data.get('created_by', '') == currentUserId()
+        && request.resource.data.get('sector', '') == 'garantias'
+        && request.resource.data.get('board_visible', false) == true
+        && request.resource.data.get('assignee_id', '') == 'emp-12'
+        && request.resource.data.get('status', '') == 'todo'
+        && request.resource.data.get('priority', '') == 'high'
+        && !request.resource.data.keys().hasAny([
+          'archived_at', 'archived_by', 'archivedAt', 'archivedBy',
+          'warranty_archived_by_deletion', 'warranty_previous_board_visible'
+        ])
+        && exists(claimPath)
+        && get(claimPath).data.get('requested_by', '') == currentUserId()
+        && get(claimPath).data.get('origin', 'manual') != 'site'
+        && get(claimPath).data.get('deleted_at', null) == null;
+    }
+
     // Operational tasks: active staff may update status; transfer is forbidden to motoboys.
     match /tasks/{taskId} {
-      allow read, create: if isActive();
+      allow read: if isActive();
+      allow create: if isActive() && (
+        request.resource.data.get('warranty_id', '') == ''
+        || mayCreateLinkedWarrantyTask()
+      );
       // Tarefas ligadas a garantia não podem ser excluídas diretamente.
       allow delete: if isActive() && resource.data.get('warranty_id', '') == '';
       allow update: if isActive()
@@ -448,16 +477,30 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /warranty_updates/{updateId} {
-      allow read: if isActive();
-      allow create: if canSeeWarrantyModule()
+    // As notas do cliente podem ser criadas pela interface; os eventos de
+    // lixeira continuam exclusivos da Cloud Function/ Admin SDK.
+    function mayCreateWarrantyNote() {
+      let claimId = request.resource.data.get('warranty_id', '');
+      let claimPath = /databases/$(database)/documents/warranty_claims/$(claimId);
+      return canSeeWarrantyModule()
+        && request.resource.data.keys().hasOnly([
+          'warranty_id', 'user_id', 'content', 'attachment_url',
+          'attachment_name', 'created_at'
+        ])
         && request.resource.data.get('user_id', '') == currentUserId()
-        && request.resource.data.get('warranty_id', '') is string
-        && request.resource.data.get('warranty_id', '').size() > 0
+        && claimId is string
+        && claimId.matches('^[A-Za-z0-9_-]{1,180}$')
         && request.resource.data.get('content', '') is string
         && request.resource.data.get('created_at', null) is timestamp
         && request.resource.data.get('content', '') != 'Garantia enviada para a lixeira.'
-        && request.resource.data.get('content', '') != 'Garantia restaurada da lixeira.';
+        && request.resource.data.get('content', '') != 'Garantia restaurada da lixeira.'
+        && exists(claimPath)
+        && get(claimPath).data.get('deleted_at', null) == null;
+    }
+
+    match /warranty_updates/{updateId} {
+      allow read: if isActive();
+      allow create: if mayCreateWarrantyNote();
       allow update, delete: if false;
     }
 
