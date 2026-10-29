@@ -16,11 +16,11 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, X, Paperclip, FileText } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { uploadImage } from '@/lib/uploadImage';
-import SignedLink from '@/components/SignedLink';
+import WarrantyAttachmentViewer from '@/components/WarrantyAttachmentViewer';
 import WarrantySiteDetails from '@/components/WarrantySiteDetails';
 
 const WARRANTY_STATUSES = [
@@ -685,62 +685,91 @@ const WarrantiesPanel = () => {
 
                 <WarrantySiteDetails claim={selectedClaim} />
 
-                {selectedClaim.productImages?.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Imagens do Produto</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {selectedClaim.productImages.map((url, i) => (
-                        <SignedLink key={i} url={url}>
-                          <img
-                            src={url}
-                            alt={`Imagem ${i + 1} do produto em garantia`}
-                            className="w-full h-20 object-cover rounded border border-border"
-                          />
-                        </SignedLink>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
-                {/* Documentos */}
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Documentos</p>
+                {/* Documentos e anexos */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Documentos e anexos
+                  </p>
+
+                  {selectedClaim.productImages?.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Imagens do produto
+                      </p>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {selectedClaim.productImages.map((url, i) => (
+                          <WarrantyAttachmentViewer
+                            key={url + i}
+                            source={url}
+                            name={`Imagem do produto ${i + 1}`}
+                            variant="thumbnail"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedClaim.siteAttachments?.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Anexos recebidos pelo site
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selectedClaim.siteAttachments.map((file) => (
+                          <WarrantyAttachmentViewer
+                            key={file.path}
+                            source={file.path}
+                            name={file.name}
+                            mimeType={file.type}
+                            variant={
+                              file.type.startsWith('image/')
+                                ? 'thumbnail'
+                                : 'row'
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-2">
                     {selectedClaim.laborReimbursementEnabled &&
                       selectedClaim.laborReimbursementFileUrl && (
-                        <SignedLink
-                          url={selectedClaim.laborReimbursementFileUrl}
-                          className="flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <FileText className="w-3 h-3" />
-                          NF Ressarcimento
-                        </SignedLink>
+                        <WarrantyAttachmentViewer
+                          source={selectedClaim.laborReimbursementFileUrl}
+                          name="NF Ressarcimento"
+                        />
                       )}
+
                     {selectedClaim.vehicleDocumentUrl && (
-                      <SignedLink
-                        url={selectedClaim.vehicleDocumentUrl}
-                        className="flex items-center gap-1 text-xs text-primary hover:underline"
-                      >
-                        <FileText className="w-3 h-3" />
-                        Doc. Veículo
-                      </SignedLink>
+                      <WarrantyAttachmentViewer
+                        source={selectedClaim.vehicleDocumentUrl}
+                        name="Documento do veículo"
+                      />
                     )}
+
                     {selectedClaim.identityDocumentUrl && (
-                      <SignedLink
-                        url={selectedClaim.identityDocumentUrl}
-                        className="flex items-center gap-1 text-xs text-primary hover:underline"
-                      >
-                        <FileText className="w-3 h-3" />
-                        Doc. Identidade
-                      </SignedLink>
+                      <WarrantyAttachmentViewer
+                        source={selectedClaim.identityDocumentUrl}
+                        name="Documento de identidade"
+                      />
                     )}
                   </div>
-                  {selectedClaim.laborReimbursementEnabled && selectedClaim.bankDetails && (
-                    <div className="mt-1">
-                      <span className="text-xs text-muted-foreground">Dados Bancários:</span>
-                      <p className="text-sm">{selectedClaim.bankDetails}</p>
-                    </div>
-                  )}
+
+                  {selectedClaim.laborReimbursementEnabled &&
+                    selectedClaim.bankDetails && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">
+                          Dados Bancários:
+                        </span>
+                        <p className="text-sm">
+                          {selectedClaim.bankDetails}
+                        </p>
+                      </div>
+                    )}
                 </div>
 
                 {/* Status */}
@@ -774,13 +803,10 @@ const WarrantiesPanel = () => {
                         </div>
                         {u.content && <p className="text-sm mt-1">{u.content}</p>}
                         {u.attachmentUrl && (
-                          <SignedLink
-                            url={u.attachmentUrl}
-                            className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                          >
-                            <Paperclip className="w-3 h-3" />
-                            {u.attachmentName || 'Anexo'}
-                          </SignedLink>
+                          <WarrantyAttachmentViewer
+                            source={u.attachmentUrl}
+                            name={u.attachmentName || 'Anexo da atualização'}
+                          />
                         )}
                       </div>
                     ))}
