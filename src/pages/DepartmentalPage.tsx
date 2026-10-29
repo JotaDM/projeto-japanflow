@@ -43,6 +43,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import WarrantiesPanel from '@/components/WarrantiesPanel';
+import { canAccessWarrantyModule } from '@/lib/warrantyPermissions';
 import UnifyRidesDialog from '@/components/UnifyRidesDialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -111,8 +112,10 @@ const DepartmentalPage = () => {
     isAdmin || userSectors.some((s) => ['expedicao', 'compras', 'estoque'].includes(s));
   const canSeeSupplies = true; // All employees
   const canSeeMotoboy = isAdmin || userSectors.some((s) => ['expedicao', 'motoboys'].includes(s));
-  const canSeeWarranties =
-    isAdmin || userSectors.some((s) => ['garantias', 'vendas', 'expedicao'].includes(s));
+  const canSeeWarranties = canAccessWarrantyModule(
+    currentUser,
+    featPerms.hasFeature(currentUser?.id, 'tracking_warranties')
+  );
 
   // Dialog states
   const [dialog, setDialog] = useState<string | null>(null);
