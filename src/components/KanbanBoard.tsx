@@ -365,22 +365,16 @@ const KanbanBoard = ({ tasks, boardUserId, boardAuthUid }: KanbanBoardProps) => 
   );
 
   // Pesquisa todo o histórico paginado do quadro, sem misturá-lo ao Kanban arrastável.
+  const {
+    loading: archiveLoading,
+    error: archiveError,
+    hasMore: archiveHasMore,
+    loadMore: loadMoreArchive,
+  } = archivedHistory;
   useEffect(() => {
-    if (
-      search.trim().length < 2 ||
-      archivedHistory.loading ||
-      archivedHistory.error ||
-      !archivedHistory.hasMore
-    )
-      return;
-    void archivedHistory.loadMore();
-  }, [
-    search,
-    archivedHistory.loading,
-    archivedHistory.error,
-    archivedHistory.hasMore,
-    archivedHistory.loadMore,
-  ]);
+    if (search.trim().length < 2 || archiveLoading || archiveError || !archiveHasMore) return;
+    void loadMoreArchive();
+  }, [search, archiveLoading, archiveError, archiveHasMore, loadMoreArchive]);
 
   const userIsMotoboy =
     currentUser?.sectors?.includes('motoboys' as Sector) && currentUser?.role !== 'admin';

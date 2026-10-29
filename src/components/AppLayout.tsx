@@ -30,7 +30,6 @@ import InventoryHeaderBanner from './InventoryHeaderBanner';
 import ForcePasswordChangeDialog from '@/components/ForcePasswordChangeDialog';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import LoginSplash from '@/components/LoginSplash';
-import SystemFooter from '@/components/SystemFooter';
 import BacklogReplyPopup from '@/components/BacklogReplyPopup';
 
 import { Button } from '@/components/ui/button';
@@ -330,7 +329,6 @@ const AppLayout = () => {
             >
               <Outlet />
             </div>
-            {!isChatRoute && <SystemFooter />}
           </main>
         </div>
       </div>

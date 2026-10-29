@@ -24,10 +24,10 @@ export default function SystemFooter() {
 
   return (
     <footer
-      className="mt-10 w-full border-t border-border/60 bg-background/70 px-4 py-6 text-xs text-muted-foreground"
+      className="mt-8 w-full border-t border-border/60 bg-transparent px-4 py-3 text-xs text-muted-foreground"
       aria-label="Rodape do sistema"
     >
-      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col items-center justify-center gap-2 text-center">
+      <div className="mx-auto flex w-full min-w-0 flex-col items-center justify-center gap-1 text-center">
         <span
           className="relative inline-flex h-24 w-24 shrink-0 items-center justify-center"
           aria-hidden="true"

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -15,10 +15,12 @@ import {
 import { CalendarEvent } from '@/types';
 import { addDays, endOfWeek, format, isWithinInterval, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Pencil, Trash2, CalendarDays, Clock, Bell } from 'lucide-react';
+import { Plus, Pencil, Trash2, CalendarDays, Clock, Bell, StickyNote } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import AICalendarCreator from '@/components/AICalendarCreator';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 interface EmployeeCalendarProps {
   userId: string;
@@ -71,6 +73,90 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
   const [description, setDescription] = useState('');
   const [time, setTime] = useState('');
   const [eventType, setEventType] = useState<'event' | 'reminder'>('event');
+
+  type PostIt = { id: string; date: string; text: string };
+  const noteKey = `jf:calendar-postits:v1:${userId}`;
+  const [postIts, setPostIts] = useState<PostIt[]>([]);
+  const [noteText, setNoteText] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    const safeNotes = (data: unknown): PostIt[] =>
+      Array.isArray(data)
+        ? data
+            .filter(
+              (item): item is PostIt =>
+                !!item &&
+                typeof item.id === 'string' &&
+                typeof item.date === 'string' &&
+                typeof item.text === 'string' &&
+                item.text.length <= 400
+            )
+            .slice(0, 100)
+        : [];
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(noteKey) || '[]');
+      setPostIts(
+        Array.isArray(saved)
+          ? saved.filter(
+              (item): item is PostIt =>
+                !!item &&
+                typeof item.id === 'string' &&
+                typeof item.date === 'string' &&
+                typeof item.text === 'string'
+            )
+          : []
+      );
+    } catch {
+      setPostIts([]);
+    }
+    if (auth.currentUser && userId) {
+      getDoc(doc(db, 'user_calendar_notes', userId))
+        .then((snapshot) => {
+          if (!cancelled && snapshot.exists()) setPostIts(safeNotes(snapshot.data().notes));
+        })
+        .catch(() => {
+          /* Usar anotacoes locais em caso de erro. */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [noteKey, userId]);
+  const saveNotes = (next: PostIt[]) => {
+    try {
+      localStorage.setItem(noteKey, JSON.stringify(next));
+      setPostIts(next);
+      if (auth.currentUser)
+        void setDoc(doc(db, 'user_calendar_notes', userId), { notes: next, schema: 1 }).catch(() =>
+          toast.error('Anotação salva apenas neste navegador.')
+        );
+    } catch {
+      toast.error('Não foi possível salvar a anotação.');
+    }
+  };
+  const addPostIt = () => {
+    const text = noteText.trim();
+    if (!selectedDate || !text) return;
+    if (text.length > 400 || postIts.length >= 100) {
+      toast.error('Limite de anotações atingido.');
+      return;
+    }
+    const next = [
+      ...postIts,
+      { id: crypto.randomUUID(), date: format(selectedDate, 'yyyy-MM-dd'), text },
+    ];
+    try {
+      localStorage.setItem(noteKey, JSON.stringify(next));
+      setPostIts(next);
+      if (auth.currentUser)
+        void setDoc(doc(db, 'user_calendar_notes', userId), { notes: next, schema: 1 }).catch(() =>
+          toast.error('Anotação salva apenas neste navegador.')
+        );
+      setNoteText('');
+    } catch {
+      toast.error('Não foi possível salvar a anotação.');
+    }
+  };
 
   const isAdmin = currentUser?.role === 'admin';
   const events = getEventsForUser(userId);
@@ -287,7 +373,7 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
           </div>
         )}
         {viewMode === 'week' && selectedDate && (
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid min-w-0 grid-cols-7 gap-0.5">
             {Array.from({ length: 7 }, (_, index) =>
               addDays(startOfWeek(selectedDate, { weekStartsOn: 0 }), index)
             ).map((date) => (
@@ -295,9 +381,12 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
                 key={date.toISOString()}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`rounded-lg border px-1 py-2 text-center text-xs ${selectedDateStr === format(date, 'yyyy-MM-dd') ? 'border-primary bg-primary/10' : 'bg-card'}`}
+                className={`flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border px-0 py-2 text-center text-[10px] ${selectedDateStr === format(date, 'yyyy-MM-dd') ? 'border-primary bg-primary/10' : 'bg-card'}`}
               >
-                {format(date, 'EEE dd', { locale: ptBR })}
+                <span className="block truncate text-[9px]">
+                  {format(date, 'EEEEE', { locale: ptBR })}
+                </span>
+                <span className="text-xs font-semibold">{format(date, 'dd')}</span>
               </button>
             ))}
           </div>
@@ -410,6 +499,65 @@ const EmployeeCalendar = ({ userId }: EmployeeCalendarProps) => {
           )}
         </div>
       </div>
+
+      {/* Anotações pessoais por data — armazenamento apenas no navegador. */}
+      <section
+        className="mt-4 space-y-2 rounded-xl border border-amber-300/60 bg-amber-50/40 p-3 dark:bg-amber-950/10"
+        aria-label="Anotações do calendário"
+      >
+        <h4 className="flex items-center gap-2 text-xs font-semibold">
+          <StickyNote className="h-4 w-4 text-amber-600" /> Post-its do dia
+        </h4>
+        <p className="text-[11px] text-muted-foreground">
+          {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Selecione um dia'} · Anotações
+          privadas neste navegador
+        </p>
+        <div className="flex min-w-0 gap-1">
+          <Input
+            className="min-w-0 flex-1 bg-background"
+            value={noteText}
+            maxLength={400}
+            onChange={(event) => setNoteText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') addPostIt();
+            }}
+            placeholder="Escreva uma anotação"
+            aria-label="Nova anotação"
+          />
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={addPostIt}
+            disabled={!noteText.trim() || !selectedDate}
+            aria-label="Adicionar anotação"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {postIts
+            .filter((note) => note.date === selectedDateStr)
+            .map((note) => (
+              <div
+                key={note.id}
+                className="flex items-start justify-between gap-2 rounded-lg border border-amber-200 bg-amber-100/70 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-100"
+              >
+                <span className="min-w-0 whitespace-pre-wrap break-words">{note.text}</span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-1 hover:bg-amber-200/70 dark:hover:bg-amber-800/40"
+                  onClick={() => saveNotes(postIts.filter((item) => item.id !== note.id))}
+                  aria-label="Excluir anotação"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          {!postIts.some((note) => note.date === selectedDateStr) && (
+            <p className="text-xs text-muted-foreground">Nenhuma anotação nesta data.</p>
+          )}
+        </div>
+      </section>
 
       {/* Legenda de cores */}
       <div className="mt-4 flex flex-wrap gap-4 border-t border-border/70 pt-3 text-xs text-muted-foreground">

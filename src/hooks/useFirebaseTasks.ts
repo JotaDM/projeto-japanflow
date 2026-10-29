@@ -320,6 +320,9 @@ export function useFirebaseTasks(
       assignmentUpdate.accepted_at = now;
     }
 
+    // Concluir a tarefa nao conclui a corrida: exigimos foto assinada no fluxo Motoboy.
+    if (status === 'done') return;
+
     const directSnapshot = await getDocs(
       query(collection(db, 'motoboy_assignments'), where('task_id', '==', taskId), limit(1))
     );
@@ -336,34 +339,6 @@ export function useFirebaseTasks(
 
       await updateDoc(doc(db, 'motoboy_assignments', assignmentDoc.id), assignmentUpdate);
       return;
-    }
-
-    const title = String(current.title || '');
-    const description = String(current.description || '');
-    const assigneeId = String(current.assignee_id ?? current.assigneeId ?? '');
-
-    if (status === 'done' && (title.includes('Corrida') || title.includes('Entrega'))) {
-      const legacySnapshot = await getDocs(
-        query(collection(db, 'motoboy_assignments'), where('assigned_to', '==', assigneeId))
-      );
-
-      const match = legacySnapshot.docs.find((assignmentDoc) => {
-        const assignment = assignmentDoc.data();
-        if (assignment.status === 'completed') return false;
-
-        return (
-          (!!assignment.client_name && title.includes(String(assignment.client_name))) ||
-          (!!assignment.description && description.includes(String(assignment.description)))
-        );
-      });
-
-      if (match) {
-        await updateDoc(doc(db, 'motoboy_assignments', match.id), {
-          status: 'completed',
-          completed_at: now,
-          updated_at: now,
-        });
-      }
     }
   }, []);
 

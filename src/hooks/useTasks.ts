@@ -194,6 +194,9 @@ export const useTasks = (
       rideUpdate.accepted_at = Timestamp.now();
     }
 
+    // Concluir a tarefa nao conclui a corrida: exigimos foto assinada no fluxo Motoboy.
+    if (status === 'done') return;
+
     const directSnapshot = await getDocs(
       query(collection(db, 'motoboy_assignments'), where('task_id', '==', taskId), limit(1))
     );
@@ -209,34 +212,6 @@ export const useTasks = (
 
       await updateDoc(doc(db, 'motoboy_assignments', directDoc.id), rideUpdate);
       return;
-    }
-
-    const title = String(currentData.title || '');
-    const description = String(currentData.description || '');
-    const assigneeId = String(currentData.assignee_id || '');
-
-    if (status === 'done' && (title.includes('Corrida') || title.includes('Entrega'))) {
-      const legacySnapshot = await getDocs(
-        query(collection(db, 'motoboy_assignments'), where('assigned_to', '==', assigneeId))
-      );
-
-      const match = legacySnapshot.docs.find((assignmentDoc) => {
-        const assignment = assignmentDoc.data();
-        if (assignment.status === 'completed') return false;
-
-        return (
-          (!!assignment.client_name && title.includes(String(assignment.client_name))) ||
-          description.includes(String(assignment.description || ''))
-        );
-      });
-
-      if (match) {
-        await updateDoc(doc(db, 'motoboy_assignments', match.id), {
-          status: 'completed',
-          completed_at: Timestamp.now(),
-          updated_at: Timestamp.now(),
-        });
-      }
     }
   }, []);
 
