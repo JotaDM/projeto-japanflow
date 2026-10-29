@@ -53,7 +53,8 @@ import { SECTOR_LABELS, Sector } from '@/types';
 import { parseOrderInfo, stripOrderInfo, OrderInfoBadges } from '@/lib/orderInfo';
 import { uploadImage } from '@/lib/uploadImage';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog';
-import { MotoboyLocationSharing, MotoboyLiveMap } from '@/components/MotoboyLiveMap';
+import { MotoboyLocationSharing } from '@/components/MotoboyLiveMap';
+import { Link } from 'react-router-dom';
 
 const MotoboyTimer = ({ startTime }: { startTime: string }) => {
   const [, setTick] = useState(0);
@@ -978,9 +979,13 @@ const DepartmentalPage = () => {
                   <Layers className="w-3 h-3 mr-1" />
                   Unificar Corridas
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setMapOpen(true)}>
-                  <Navigation className="mr-1 h-3.5 w-3.5" /> Mapa de motoboys
-                </Button>
+                {(isAdmin || currentUser?.id === 'emp-1') && (
+                  <Button size="sm" variant="outline" asChild>
+                    <Link to="/departmental/motoboys/mapa">
+                      <Navigation className="mr-1 h-3.5 w-3.5" /> Mapa de motoboys
+                    </Link>
+                  </Button>
+                )}
               </div>
             )}
             <MotoboyLiveMap open={mapOpen} onOpenChange={setMapOpen} getName={getName} />

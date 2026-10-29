@@ -20,6 +20,7 @@ import { uploadImage } from '@/lib/uploadImage';
 import { changeOwnPassword } from '@/lib/authService';
 import { ChatAvatar } from '@/funcionalidades/chat/componentes/ChatMedia';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
+import { MotoboyLocationPermission } from '@/components/MotoboyLocationPermission';
 
 const ProfilePage = () => {
   const { currentUser, updateProfile, updateUser } = useApp();
@@ -118,6 +119,7 @@ const ProfilePage = () => {
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(280px,.82fr)_minmax(0,1.18fr)]">
         <div className="space-y-5">
+          {currentUser.sectors?.includes('motoboys') && <MotoboyLocationPermission />}
           <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-card">
             <div className="flex flex-col items-center text-center">
               <div className="relative">

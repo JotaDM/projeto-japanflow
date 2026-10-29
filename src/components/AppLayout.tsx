@@ -50,6 +50,7 @@ const pageTitles: Record<string, string> = {
   '/chat': 'Chat',
   '/corporate': 'Corporativo',
   '/departmental': 'Departamental',
+  '/departmental/motoboys/mapa': 'Mapa de motoboys',
   '/financial': 'Financeiro',
   '/corridas': 'Corridas',
   '/time-reports': 'Relatórios',
