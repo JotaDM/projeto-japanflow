@@ -9,8 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MapPin, Navigation, ShieldCheck } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MotoboyAssignment } from '@/hooks/useDepartmental';
 
@@ -128,102 +127,5 @@ export function MotoboyLocationSharing({
         operacional em segundo plano.
       </p>
     </div>
-  );
-}
-
-export function MotoboyLiveMap({
-  open,
-  onOpenChange,
-  getName,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  getName: (id: string) => string;
-}) {
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [, forceClock] = useState(0);
-  useEffect(() => {
-    if (!open) return;
-    const t = window.setInterval(() => forceClock((v) => v + 1), 20000);
-    return () => window.clearInterval(t);
-  }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    return onSnapshot(
-      collection(db, 'motoboy_live_sessions'),
-      (snap) => {
-        setLocations(
-          snap.docs.map((row) => {
-            const d = row.data();
-            return {
-              rideId: row.id,
-              userId: d.user_id || '',
-              lat: d.lat,
-              lng: d.lng,
-              accuracy: d.accuracy || 0,
-              updatedAt: d.updated_at?.toMillis?.() || 0,
-            };
-          })
-        );
-      },
-      () => toast.error('Sem permissão para visualizar o GPS dos motoboys.')
-    );
-  }, [open]);
-  const recent = locations.filter(
-    (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && Date.now() - p.updatedAt < 120000
-  );
-  const point = recent.find((p) => p.rideId === selected) || recent[0];
-  const bbox = point
-    ? `${point.lng - 0.012}%2C${point.lat - 0.008}%2C${point.lng + 0.012}%2C${point.lat + 0.008}`
-    : '';
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" /> Mapa de motoboys
-          </DialogTitle>
-        </DialogHeader>
-        <p className="text-xs text-muted-foreground">
-          <ShieldCheck className="mr-1 inline h-3 w-3" /> Posicoes recentes de jornadas de entrega,
-          incluindo o retorno a loja. Ao abrir o mapa, a localização selecionada é compartilhada com
-          OpenStreetMap.
-        </p>
-        {recent.length ? (
-          <>
-            <div className="flex flex-wrap gap-2">
-              {recent.map((p) => (
-                <Button
-                  size="sm"
-                  key={p.rideId}
-                  variant={point?.rideId === p.rideId ? 'default' : 'outline'}
-                  onClick={() => setSelected(p.rideId)}
-                >
-                  {getName(p.userId)} ·{' '}
-                  {new Date(p.updatedAt).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Button>
-              ))}
-            </div>
-            {point && (
-              <iframe
-                title={`Mapa do motoboy ${getName(point.userId)}`}
-                className="h-[min(55vh,490px)] w-full rounded-xl border"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${point.lat}%2C${point.lng}`}
-              />
-            )}
-          </>
-        ) : (
-          <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-            Nenhuma localizacao recente disponivel.
-          </p>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }
