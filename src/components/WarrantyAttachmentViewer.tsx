@@ -1,22 +1,10 @@
-
 import { useEffect, useState } from 'react';
 import { getBlob, ref } from 'firebase/storage';
-import {
-  Download,
-  FileText,
-  Film,
-  Image as ImageIcon,
-  Paperclip,
-} from 'lucide-react';
+import { Download, FileText, Film, Image as ImageIcon, Paperclip } from 'lucide-react';
 
 import { storage } from '@/lib/firebase';
 import { getSignedUrl, pathFromPublicUrl } from '@/lib/signedUrl';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import WarrantyImageZoom from '@/components/WarrantyImageZoom';
 
@@ -60,7 +48,6 @@ function inferMime(name: string): string {
   return types[extension || ''] || '';
 }
 
-
 function inferSourceMime(source: string): string {
   const path = pathFromPublicUrl(source) || source;
   const cleanPath = path.split('?')[0].split('#')[0];
@@ -69,29 +56,15 @@ function inferSourceMime(source: string): string {
 }
 
 async function detectBlobMime(blob: Blob): Promise<string> {
-  const b = new Uint8Array(
-    await blob.slice(0, 16).arrayBuffer()
-  );
+  const b = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
 
-  if (
-    b[0] === 0x89 &&
-    b[1] === 0x50 &&
-    b[2] === 0x4e &&
-    b[3] === 0x47
-  ) return 'image/png';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
 
-  if (
-    b[0] === 0xff &&
-    b[1] === 0xd8 &&
-    b[2] === 0xff
-  ) return 'image/jpeg';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
 
   const header = String.fromCharCode(...b);
 
-  if (
-    header.startsWith('RIFF') &&
-    header.slice(8, 12) === 'WEBP'
-  ) return 'image/webp';
+  if (header.startsWith('RIFF') && header.slice(8, 12) === 'WEBP') return 'image/webp';
 
   if (header.startsWith('GIF8')) return 'image/gif';
   if (header.startsWith('%PDF-')) return 'application/pdf';
@@ -99,13 +72,8 @@ async function detectBlobMime(blob: Blob): Promise<string> {
   return '';
 }
 
-
-
 function safeMime(...types: string[]): string {
-  return (
-    types.find((type) => SAFE_MIMES.has(type)) ||
-    'application/octet-stream'
-  );
+  return types.find((type) => SAFE_MIMES.has(type)) || 'application/octet-stream';
 }
 
 function fileKind(type: string) {
@@ -123,9 +91,7 @@ export default function WarrantyAttachmentViewer({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
-  const [type, setType] = useState(
-  safeMime(mimeType, inferMime(name), inferSourceMime(source))
-);
+  const [type, setType] = useState(safeMime(mimeType, inferMime(name), inferSourceMime(source)));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -145,9 +111,7 @@ export default function WarrantyAttachmentViewer({
     setPreviewFailed(false);
 
     async function load() {
-      const path = source.startsWith('attachments/')
-        ? source
-        : pathFromPublicUrl(source);
+      const path = source.startsWith('attachments/') ? source : pathFromPublicUrl(source);
 
       // Preserva a validação dos anexos enviados pelo site.
       if (
@@ -159,26 +123,21 @@ export default function WarrantyAttachmentViewer({
 
       if (path?.startsWith('attachments/')) {
         try {
-          const original = await getBlob(
-            ref(storage, path),
-            MAX_BYTES
-          );
+          const original = await getBlob(ref(storage, path), MAX_BYTES);
 
           if (!active) return;
 
-          
-            const detectedType = await detectBlobMime(original);
+          const detectedType = await detectBlobMime(original);
 
-            if (!active) return;
+          if (!active) return;
 
-            const finalType = safeMime(
+          const finalType = safeMime(
             detectedType,
             original.type,
             mimeType,
             inferMime(name),
             inferSourceMime(source)
-            );
-
+          );
 
           const typedBlob = new Blob([original], {
             type: finalType,
@@ -209,16 +168,11 @@ export default function WarrantyAttachmentViewer({
 
       if (!active) return;
 
-      if (
-        !legacyUrl.startsWith('blob:') &&
-        !/^https:\/\//i.test(legacyUrl)
-      ) {
+      if (!legacyUrl.startsWith('blob:') && !/^https:\/\//i.test(legacyUrl)) {
         throw new Error('Endereço do anexo inválido');
       }
 
-    setType(
-        safeMime(mimeType, inferMime(name), inferSourceMime(source))
-    );
+      setType(safeMime(mimeType, inferMime(name), inferSourceMime(source)));
       setUrl(legacyUrl);
     }
 
@@ -243,13 +197,8 @@ export default function WarrantyAttachmentViewer({
   }, [source, name, mimeType, shouldLoad, retry]);
 
   const kind = fileKind(type);
-  const previewKind =
-  variant === 'thumbnail' && kind === 'other'
-    ? 'image'
-    : kind;
-  const initialKind = fileKind(
-    safeMime(mimeType, inferMime(name))
-  );
+  const previewKind = variant === 'thumbnail' && kind === 'other' ? 'image' : kind;
+  const initialKind = fileKind(safeMime(mimeType, inferMime(name)));
 
   const Icon =
     initialKind === 'image'
@@ -260,26 +209,21 @@ export default function WarrantyAttachmentViewer({
           ? Film
           : Paperclip;
 
+  const extensions: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/heic': 'heic',
+    'application/pdf': 'pdf',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/quicktime': 'mov',
+  };
 
-const extensions: Record<string, string> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/heic': 'heic',
-  'application/pdf': 'pdf',
-  'video/mp4': 'mp4',
-  'video/webm': 'webm',
-  'video/quicktime': 'mov',
-};
+  const extension = extensions[type];
 
-const extension = extensions[type];
-
-const downloadName =
-  extension && !/\.[a-z0-9]{2,5}$/i.test(name)
-    ? `${name}.${extension}`
-    : name;
-
+  const downloadName = extension && !/\.[a-z0-9]{2,5}$/i.test(name) ? `${name}.${extension}` : name;
 
   return (
     <>
@@ -293,10 +237,7 @@ const downloadName =
         }
         title={'Visualizar ' + name}
       >
-        {variant === 'thumbnail' &&
-        previewKind === 'image' &&
-        url &&
-        !previewFailed ? (
+        {variant === 'thumbnail' && previewKind === 'image' && url && !previewFailed ? (
           <img
             src={url}
             alt={name}
@@ -315,9 +256,7 @@ const downloadName =
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[96vw] max-w-[1400px] max-h-[94dvh]">
           <DialogHeader>
-            <DialogTitle className="break-words pr-6">
-              {name}
-            </DialogTitle>
+            <DialogTitle className="break-words pr-6">{name}</DialogTitle>
           </DialogHeader>
 
           {loading && (
@@ -345,13 +284,7 @@ const downloadName =
             <div className="space-y-4">
               <div className="min-h-40 w-full overflow-hidden rounded-lg bg-muted/40">
                 {previewKind === 'image' && !previewFailed ? (
-                  
-                <WarrantyImageZoom
-                src={url}
-                alt={name}
-                onError={() => setPreviewFailed(true)}
-                />
-
+                  <WarrantyImageZoom src={url} alt={name} onError={() => setPreviewFailed(true)} />
                 ) : kind === 'pdf' ? (
                   <iframe
                     src={url}
@@ -367,8 +300,8 @@ const downloadName =
                   />
                 ) : (
                   <p className="p-5 text-center text-sm text-muted-foreground">
-                    Prévia indisponível para este formato.
-                    Utilize a opção de baixar ou abrir o arquivo.
+                    Prévia indisponível para este formato. Utilize a opção de baixar ou abrir o
+                    arquivo.
                   </p>
                 )}
               </div>

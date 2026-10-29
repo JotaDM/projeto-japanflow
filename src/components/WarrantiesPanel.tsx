@@ -139,11 +139,9 @@ const WarrantiesPanel = () => {
   const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
   const [creating, setCreating] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
-  const [deleteTarget, setDeleteTarget] =
-    useState<WarrantyClaim | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WarrantyClaim | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [restoringId, setRestoringId] =
-    useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const MAX_PRODUCT_IMAGES = 4;
 
@@ -181,8 +179,7 @@ const WarrantiesPanel = () => {
         [c.clientName, c.supplierName, c.itemName, getName(c.requestedBy)].some((v) =>
           (v || '').toLowerCase().includes(search.toLowerCase())
         );
-      const matchDate =
-        !filterDate || c.createdAt?.slice(0, 10) === filterDate;
+      const matchDate = !filterDate || c.createdAt?.slice(0, 10) === filterDate;
       const matchStatus = filterStatus === 'all' || c.status === filterStatus;
       return matchSearch && matchDate && matchStatus;
     });
@@ -193,9 +190,7 @@ const WarrantiesPanel = () => {
     [claims, canTrashClaim]
   );
 
-  const displayedClaims = showTrash
-    ? trashedClaims
-    : filteredClaims;
+  const displayedClaims = showTrash ? trashedClaims : filteredClaims;
 
   const claimUpdates = useMemo(() => {
     if (!selectedClaim) return [];
@@ -203,7 +198,6 @@ const WarrantiesPanel = () => {
   }, [updates, selectedClaim]);
 
   if (!currentUser) return null;
-
 
   const handleSaveEdit = async (fields: WarrantyEditableFields) => {
     if (!selectedClaim || !currentUser) return;
@@ -323,7 +317,8 @@ const WarrantiesPanel = () => {
       const productImageUrls: string[] = [];
       for (const f of productImageFiles.slice(0, MAX_PRODUCT_IMAGES)) {
         const url = await uploadFile(f, 'warranties/product', 'product_images', currentUser.id);
-        if (!url) throw new Error(`Não foi possível enviar a imagem ${productImageUrls.length + 1}`);
+        if (!url)
+          throw new Error(`Não foi possível enviar a imagem ${productImageUrls.length + 1}`);
         productImageUrls.push(url);
       }
 
@@ -445,13 +440,10 @@ const WarrantiesPanel = () => {
             }}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            {showTrash
-              ? 'Voltar às garantias'
-              : `Lixeira (${trashedClaims.length})`}
+            {showTrash ? 'Voltar às garantias' : `Lixeira (${trashedClaims.length})`}
           </Button>
         )}
       </div>
-      
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-2">
@@ -504,9 +496,7 @@ const WarrantiesPanel = () => {
       {/* Lista */}
       {!claimsError && displayedClaims.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">
-          {showTrash
-            ? 'A lixeira está vazia'
-            : 'Nenhum pedido de garantia encontrado'}
+          {showTrash ? 'A lixeira está vazia' : 'Nenhum pedido de garantia encontrado'}
         </p>
       ) : claimsError ? null : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -809,9 +799,7 @@ const WarrantiesPanel = () => {
             <>
               <DialogHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <DialogTitle>
-                    {editing ? 'Editar Garantia' : 'Detalhes da Garantia'}
-                  </DialogTitle>
+                  <DialogTitle>{editing ? 'Editar Garantia' : 'Detalhes da Garantia'}</DialogTitle>
                   {!editing && (
                     <div className="flex flex-wrap items-center gap-2">
                       <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
@@ -845,269 +833,244 @@ const WarrantiesPanel = () => {
                   onCancel={() => setEditing(false)}
                 />
               ) : (
-
-              <div className="space-y-4">
-                {/* Info */}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-xs text-muted-foreground">Cliente</span>
-                    <p className="font-medium">{selectedClaim.clientName}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Fornecedor</span>
-                    <p className="font-medium">{selectedClaim.supplierName}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Marca</span>
-                    <p>{selectedClaim.productBrand}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Item</span>
-                    <p>{selectedClaim.itemName}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Código</span>
-                    <p>{selectedClaim.itemCode || '-'}</p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Data da Venda</span>
-                    <p>
-                      {selectedClaim.saleDate
-                        ? new Date(selectedClaim.saleDate + 'T12:00:00').toLocaleDateString('pt-BR')
-                        : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-muted-foreground">Nº Nota/Pedido</span>
-                    <p>
-                      {selectedClaim.invoiceNumber ||
-                        selectedClaim.siteOrder ||
-                        '-'}
-                    </p>
-                  </div>
-
-                  
-{selectedClaim.origin === 'site' &&
-  ([
-    ['Protocolo', selectedClaim.siteProtocol || ''],
-    [
-      'Pedido informado no site',
-      selectedClaim.siteOrder &&
-      selectedClaim.siteOrder !== selectedClaim.invoiceNumber
-        ? selectedClaim.siteOrder
-        : '',
-    ],
-    ['Canal de contato', selectedClaim.siteContactChannel || ''],
-    ['Contato', selectedClaim.siteContact || ''],
-    [
-      'Recebimento da peça',
-      selectedClaim.siteReceived
-        ? selectedClaim.siteReceived
-            .split('-')
-            .reverse()
-            .join('/')
-        : '',
-    ],
-    ['Peça instalada?', selectedClaim.siteInstalled || ''],
-    ['Veículo', selectedClaim.siteVehicle || ''],
-    ['Observações', selectedClaim.siteNotes || ''],
-  ] as [string, string][])
-    .filter(([, value]) => Boolean(value))
-    .map(([label, value]) => (
-      <div
-        key={label}
-        className={
-          label === 'Observações'
-            ? 'col-span-2 min-w-0'
-            : 'min-w-0'
-        }
-      >
-        <span className="text-xs text-muted-foreground">
-          {label}
-        </span>
-        <p className="whitespace-pre-wrap break-words">
-          {value}
-        </p>
-      </div>
-    ))}
-
-
-                  <div>
-                    <span className="text-xs text-muted-foreground">Solicitante</span>
-                    <p>{getName(selectedClaim.requestedBy)}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-xs text-muted-foreground">Defeito</span>
-                    <p>{selectedClaim.defectDescription || '-'}</p>
-                  </div>
-                  {selectedClaim.installationMileage && (
+                <div className="space-y-4">
+                  {/* Info */}
+                  <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <span className="text-xs text-muted-foreground">Km Instalação</span>
-                      <p>{selectedClaim.installationMileage}</p>
+                      <span className="text-xs text-muted-foreground">Cliente</span>
+                      <p className="font-medium">{selectedClaim.clientName}</p>
                     </div>
-                  )}
-                  {selectedClaim.currentMileage && (
                     <div>
-                      <span className="text-xs text-muted-foreground">Km Atual</span>
-                      <p>{selectedClaim.currentMileage}</p>
+                      <span className="text-xs text-muted-foreground">Fornecedor</span>
+                      <p className="font-medium">{selectedClaim.supplierName}</p>
                     </div>
-                  )}
-                </div>
-
-                {/* Documentos e anexos */}
-                <div className="space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Documentos e anexos
-                  </p>
-
-                  {selectedClaim.productImages?.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Imagens do produto
+                    <div>
+                      <span className="text-xs text-muted-foreground">Marca</span>
+                      <p>{selectedClaim.productBrand}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Item</span>
+                      <p>{selectedClaim.itemName}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Código</span>
+                      <p>{selectedClaim.itemCode || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Data da Venda</span>
+                      <p>
+                        {selectedClaim.saleDate
+                          ? new Date(selectedClaim.saleDate + 'T12:00:00').toLocaleDateString(
+                              'pt-BR'
+                            )
+                          : '-'}
                       </p>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {selectedClaim.productImages.map((url, i) => (
-                          <WarrantyAttachmentViewer
-                            key={url + i}
-                            source={url}
-                            name={`Imagem do produto ${i + 1}`}
-                            variant="thumbnail"
-                          />
-                        ))}
-                      </div>
                     </div>
-                  )}
-
-                  {selectedClaim.siteAttachments?.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Anexos recebidos pelo site
-                      </p>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {selectedClaim.siteAttachments.map((file) => (
-                          <WarrantyAttachmentViewer
-                            key={file.path}
-                            source={file.path}
-                            name={file.name}
-                            mimeType={file.type}
-                            variant={
-                              file.type.startsWith('image/')
-                                ? 'thumbnail'
-                                : 'row'
-                            }
-                          />
-                        ))}
-                      </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Nº Nota/Pedido</span>
+                      <p>{selectedClaim.invoiceNumber || selectedClaim.siteOrder || '-'}</p>
                     </div>
-                  )}
 
-                  <div className="flex flex-wrap gap-2">
-                    {selectedClaim.laborReimbursementEnabled &&
-                      selectedClaim.laborReimbursementFileUrl && (
+                    {selectedClaim.origin === 'site' &&
+                      (
+                        [
+                          ['Protocolo', selectedClaim.siteProtocol || ''],
+                          [
+                            'Pedido informado no site',
+                            selectedClaim.siteOrder &&
+                            selectedClaim.siteOrder !== selectedClaim.invoiceNumber
+                              ? selectedClaim.siteOrder
+                              : '',
+                          ],
+                          ['Canal de contato', selectedClaim.siteContactChannel || ''],
+                          ['Contato', selectedClaim.siteContact || ''],
+                          [
+                            'Recebimento da peça',
+                            selectedClaim.siteReceived
+                              ? selectedClaim.siteReceived.split('-').reverse().join('/')
+                              : '',
+                          ],
+                          ['Peça instalada?', selectedClaim.siteInstalled || ''],
+                          ['Veículo', selectedClaim.siteVehicle || ''],
+                          ['Observações', selectedClaim.siteNotes || ''],
+                        ] as [string, string][]
+                      )
+                        .filter(([, value]) => Boolean(value))
+                        .map(([label, value]) => (
+                          <div
+                            key={label}
+                            className={label === 'Observações' ? 'col-span-2 min-w-0' : 'min-w-0'}
+                          >
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                            <p className="whitespace-pre-wrap break-words">{value}</p>
+                          </div>
+                        ))}
+
+                    <div>
+                      <span className="text-xs text-muted-foreground">Solicitante</span>
+                      <p>{getName(selectedClaim.requestedBy)}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-xs text-muted-foreground">Defeito</span>
+                      <p>{selectedClaim.defectDescription || '-'}</p>
+                    </div>
+                    {selectedClaim.installationMileage && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">Km Instalação</span>
+                        <p>{selectedClaim.installationMileage}</p>
+                      </div>
+                    )}
+                    {selectedClaim.currentMileage && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">Km Atual</span>
+                        <p>{selectedClaim.currentMileage}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Documentos e anexos */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground">Documentos e anexos</p>
+
+                    {selectedClaim.productImages?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Imagens do produto</p>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {selectedClaim.productImages.map((url, i) => (
+                            <WarrantyAttachmentViewer
+                              key={url + i}
+                              source={url}
+                              name={`Imagem do produto ${i + 1}`}
+                              variant="thumbnail"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedClaim.siteAttachments?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Anexos recebidos pelo site</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {selectedClaim.siteAttachments.map((file) => (
+                            <WarrantyAttachmentViewer
+                              key={file.path}
+                              source={file.path}
+                              name={file.name}
+                              mimeType={file.type}
+                              variant={file.type.startsWith('image/') ? 'thumbnail' : 'row'}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {selectedClaim.laborReimbursementEnabled &&
+                        selectedClaim.laborReimbursementFileUrl && (
+                          <WarrantyAttachmentViewer
+                            source={selectedClaim.laborReimbursementFileUrl}
+                            name="NF Ressarcimento"
+                          />
+                        )}
+
+                      {selectedClaim.vehicleDocumentUrl && (
                         <WarrantyAttachmentViewer
-                          source={selectedClaim.laborReimbursementFileUrl}
-                          name="NF Ressarcimento"
+                          source={selectedClaim.vehicleDocumentUrl}
+                          name="Documento do veículo"
                         />
                       )}
 
-                    {selectedClaim.vehicleDocumentUrl && (
-                      <WarrantyAttachmentViewer
-                        source={selectedClaim.vehicleDocumentUrl}
-                        name="Documento do veículo"
-                      />
-                    )}
+                      {selectedClaim.identityDocumentUrl && (
+                        <WarrantyAttachmentViewer
+                          source={selectedClaim.identityDocumentUrl}
+                          name="Documento de identidade"
+                        />
+                      )}
+                    </div>
 
-                    {selectedClaim.identityDocumentUrl && (
-                      <WarrantyAttachmentViewer
-                        source={selectedClaim.identityDocumentUrl}
-                        name="Documento de identidade"
-                      />
-                    )}
-                  </div>
-
-                  {selectedClaim.laborReimbursementEnabled &&
-                    selectedClaim.bankDetails && (
+                    {selectedClaim.laborReimbursementEnabled && selectedClaim.bankDetails && (
                       <div>
-                        <span className="text-xs text-muted-foreground">
-                          Dados Bancários:
-                        </span>
-                        <p className="text-sm">
-                          {selectedClaim.bankDetails}
-                        </p>
+                        <span className="text-xs text-muted-foreground">Dados Bancários:</span>
+                        <p className="text-sm">{selectedClaim.bankDetails}</p>
                       </div>
                     )}
-                </div>
-
-                {/* Status */}
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs">Status:</Label>
-                  <Select value={selectedClaim.status} onValueChange={handleStatusChange} disabled={savingStatus}>
-                    <SelectTrigger className="h-8 w-48 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WARRANTY_STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Atualizações */}
-                <div className="border-t border-border pt-3">
-                  <p className="text-xs font-medium mb-2">Atualizações ({claimUpdates.length})</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {claimUpdates.map((u) => (
-                      <div key={u.id} className="bg-secondary/30 rounded-lg p-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium">{getName(u.userId)}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(u.createdAt).toLocaleString('pt-BR')}
-                          </p>
-                        </div>
-                        {u.content && <p className="text-sm mt-1">{u.content}</p>}
-                        {u.attachmentUrl && (
-                          <WarrantyAttachmentViewer
-                            source={u.attachmentUrl}
-                            name={u.attachmentName || 'Anexo da atualização'}
-                          />
-                        )}
-                      </div>
-                    ))}
                   </div>
 
-                  {/* Nova Atualização */}
-                  <div className="mt-3 space-y-2">
-                    <Textarea
-                      placeholder="Adicionar atualização..."
-                      value={updateContent}
-                      onChange={(e) => setUpdateContent(e.target.value)}
-                      className="text-sm"
-                      rows={2}
-                    />
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept={acceptedFileTypes}
-                        onChange={(e) => setUpdateFile(e.target.files?.[0] || null)}
-                        className="h-8 text-xs flex-1"
+                  {/* Status */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Status:</Label>
+                    <Select
+                      value={selectedClaim.status}
+                      onValueChange={handleStatusChange}
+                      disabled={savingStatus}
+                    >
+                      <SelectTrigger className="h-8 w-48 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WARRANTY_STATUSES.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Atualizações */}
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs font-medium mb-2">Atualizações ({claimUpdates.length})</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {claimUpdates.map((u) => (
+                        <div key={u.id} className="bg-secondary/30 rounded-lg p-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium">{getName(u.userId)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(u.createdAt).toLocaleString('pt-BR')}
+                            </p>
+                          </div>
+                          {u.content && <p className="text-sm mt-1">{u.content}</p>}
+                          {u.attachmentUrl && (
+                            <WarrantyAttachmentViewer
+                              source={u.attachmentUrl}
+                              name={u.attachmentName || 'Anexo da atualização'}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Nova Atualização */}
+                    <div className="mt-3 space-y-2">
+                      <Textarea
+                        placeholder="Adicionar atualização..."
+                        value={updateContent}
+                        onChange={(e) => setUpdateContent(e.target.value)}
+                        className="text-sm"
+                        rows={2}
                       />
-                      <Button
-                        size="sm"
-                        onClick={handlePostUpdate}
-                        disabled={posting}
-                        className="h-8"
-                      >
-                        {posting ? '...' : 'Enviar'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept={acceptedFileTypes}
+                          onChange={(e) => setUpdateFile(e.target.files?.[0] || null)}
+                          className="h-8 text-xs flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handlePostUpdate}
+                          disabled={posting}
+                          className="h-8"
+                        >
+                          {posting ? '...' : 'Enviar'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
               )}
             </>
           )}
@@ -1122,11 +1085,11 @@ const WarrantiesPanel = () => {
         title="Excluir pedido de garantia?"
         description={
           <>
-            A garantia de <strong>{deleteTarget?.clientName || 'este cliente'}</strong> será
-            enviada para a lixeira.
+            A garantia de <strong>{deleteTarget?.clientName || 'este cliente'}</strong> será enviada
+            para a lixeira.
             <p className="mt-2">
-              Os documentos, os anexos e o histórico serão preservados. A tarefa vinculada
-              será arquivada quando houver identificação segura.
+              Os documentos, os anexos e o histórico serão preservados. A tarefa vinculada será
+              arquivada quando houver identificação segura.
             </p>
             <p className="mt-2">Você poderá restaurar esta garantia depois.</p>
           </>

@@ -48,7 +48,6 @@ export interface WarrantyClaim {
   deletedBy?: string;
 }
 
-
 export type WarrantyEditableFields = Pick<
   WarrantyClaim,
   | 'clientName'
@@ -69,8 +68,6 @@ export type WarrantyEditableFields = Pick<
   | 'siteVehicle'
   | 'siteNotes'
 >;
-
-
 
 export interface WarrantyUpdate {
   id: string;
@@ -136,8 +133,13 @@ const mapUpdate = (id: string, data: any): WarrantyUpdate => ({
 });
 
 const WARRANTY_STATUSES_ALLOWED = new Set([
-  'pendente', 'falta_documentacao', 'encaminhada', 'em_analise',
-  'aprovada', 'indeferida', 'concluida',
+  'pendente',
+  'falta_documentacao',
+  'encaminhada',
+  'em_analise',
+  'aprovada',
+  'indeferida',
+  'concluida',
 ]);
 
 export const useWarranties = () => {
@@ -326,48 +328,47 @@ export const useWarranties = () => {
 
   // Exclusão e restauração só pelo backend autenticado. Nunca confiar em actorId do cliente.
   const softDeleteClaim = useCallback(async (id: string): Promise<{ archivedTasks: number }> => {
-    const operation = httpsCallable<{ warrantyId: string; action: 'delete' | 'restore' }, { archivedTasks: number }>(
-      getFunctions(app, 'southamerica-east1'), 'manageWarrantyLifecycle'
-    );
+    const operation = httpsCallable<
+      { warrantyId: string; action: 'delete' | 'restore' },
+      { archivedTasks: number }
+    >(getFunctions(app, 'southamerica-east1'), 'manageWarrantyLifecycle');
     const result = await operation({ warrantyId: id, action: 'delete' });
     return result.data;
   }, []);
 
   const restoreClaim = useCallback(async (id: string): Promise<{ restoredTasks: number }> => {
-    const operation = httpsCallable<{ warrantyId: string; action: 'delete' | 'restore' }, { restoredTasks: number }>(
-      getFunctions(app, 'southamerica-east1'), 'manageWarrantyLifecycle'
-    );
+    const operation = httpsCallable<
+      { warrantyId: string; action: 'delete' | 'restore' },
+      { restoredTasks: number }
+    >(getFunctions(app, 'southamerica-east1'), 'manageWarrantyLifecycle');
     const result = await operation({ warrantyId: id, action: 'restore' });
     return result.data;
   }, []);
 
-  const updateClaimStatus = useCallback(
-    async (id: string, status: string, userId?: string) => {
-      if (!WARRANTY_STATUSES_ALLOWED.has(status)) {
-        throw new Error('Status de garantia inválido');
+  const updateClaimStatus = useCallback(async (id: string, status: string, userId?: string) => {
+    if (!WARRANTY_STATUSES_ALLOWED.has(status)) {
+      throw new Error('Status de garantia inválido');
+    }
+    const claimRef = doc(db, 'warranty_claims', id);
+    const historyRef = doc(collection(db, 'warranty_updates'));
+    await runTransaction(db, async (tx) => {
+      const claim = await tx.get(claimRef);
+      if (!claim.exists() || claim.data().deleted_at) {
+        throw new Error('Garantia não encontrada ou excluída');
       }
-      const claimRef = doc(db, 'warranty_claims', id);
-      const historyRef = doc(collection(db, 'warranty_updates'));
-      await runTransaction(db, async (tx) => {
-        const claim = await tx.get(claimRef);
-        if (!claim.exists() || claim.data().deleted_at) {
-          throw new Error('Garantia não encontrada ou excluída');
-        }
-        tx.update(claimRef, { status, updated_at: Timestamp.now() });
-        if (userId) {
-          tx.set(historyRef, {
-            warranty_id: id,
-            user_id: userId,
-            content: `Status alterado para ${status}.`,
-            attachment_url: null,
-            attachment_name: null,
-            created_at: Timestamp.now(),
-          });
-        }
-      });
-    },
-    []
-  );
+      tx.update(claimRef, { status, updated_at: Timestamp.now() });
+      if (userId) {
+        tx.set(historyRef, {
+          warranty_id: id,
+          user_id: userId,
+          content: `Status alterado para ${status}.`,
+          attachment_url: null,
+          attachment_name: null,
+          created_at: Timestamp.now(),
+        });
+      }
+    });
+  }, []);
 
   const addUpdate = useCallback(
     async (

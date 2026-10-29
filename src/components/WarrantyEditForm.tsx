@@ -1,14 +1,10 @@
-
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-import type {
-  WarrantyClaim,
-  WarrantyEditableFields,
-} from '@/hooks/useWarranties';
+import type { WarrantyClaim, WarrantyEditableFields } from '@/hooks/useWarranties';
 
 interface Props {
   claim: WarrantyClaim;
@@ -50,12 +46,7 @@ const siteFields: FieldDefinition[] = [
   { key: 'siteVehicle', label: 'Veículo' },
 ];
 
-export default function WarrantyEditForm({
-  claim,
-  saving,
-  onSave,
-  onCancel,
-}: Props) {
+export default function WarrantyEditForm({ claim, saving, onSave, onCancel }: Props) {
   const [form, setForm] = useState<WarrantyEditableFields>({
     clientName: claim.clientName,
     supplierName: claim.supplierName,
@@ -93,9 +84,7 @@ export default function WarrantyEditForm({
         type={field.type || 'text'}
         value={form[field.key] ?? ''}
         disabled={saving}
-        onChange={(event) =>
-          change(field.key, event.target.value)
-        }
+        onChange={(event) => change(field.key, event.target.value)}
         className="h-9 text-sm"
       />
     </div>
@@ -105,9 +94,7 @@ export default function WarrantyEditForm({
     event.preventDefault();
 
     if (!form.clientName.trim() || !form.itemName.trim()) {
-      setValidationError(
-        'Preencha o nome do cliente e o nome do item.'
-      );
+      setValidationError('Preencha o nome do cliente e o nome do item.');
       return;
     }
 
@@ -116,44 +103,34 @@ export default function WarrantyEditForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {basicFields.map(renderField)}
-      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{basicFields.map(renderField)}</div>
 
       <div className="space-y-1">
         <Label className="text-xs">Descrição do defeito</Label>
         <Textarea
           value={form.defectDescription}
           disabled={saving}
-          onChange={(event) =>
-            change('defectDescription', event.target.value)
-          }
+          onChange={(event) => change('defectDescription', event.target.value)}
           rows={4}
         />
       </div>
 
       {claim.origin === 'site' && (
         <div className="space-y-3 border-t border-border pt-4">
-          <h3 className="text-sm font-semibold">
-            Informações complementares
-          </h3>
+          <h3 className="text-sm font-semibold">Informações complementares</h3>
 
           <p className="text-xs text-muted-foreground">
             Protocolo original: {claim.siteProtocol || '—'}
           </p>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {siteFields.map(renderField)}
-          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{siteFields.map(renderField)}</div>
 
           <div className="space-y-1">
             <Label className="text-xs">Observações</Label>
             <Textarea
               value={form.siteNotes || ''}
               disabled={saving}
-              onChange={(event) =>
-                change('siteNotes', event.target.value)
-              }
+              onChange={(event) => change('siteNotes', event.target.value)}
               rows={3}
             />
           </div>
@@ -167,12 +144,7 @@ export default function WarrantyEditForm({
       )}
 
       <div className="flex justify-end gap-2 border-t border-border pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={saving}
-        >
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
 

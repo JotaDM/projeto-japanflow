@@ -1,11 +1,4 @@
-
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 
 type Props = {
@@ -20,11 +13,7 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
 
-export default function WarrantyImageZoom({
-  src,
-  alt,
-  onError,
-}: Props) {
+export default function WarrantyImageZoom({ src, alt, onError }: Props) {
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState<Position>({
     x: 0,
@@ -43,36 +32,27 @@ export default function WarrantyImageZoom({
     y: number;
   } | null>(null);
 
-  const limitPosition = useCallback(
-    (x: number, y: number, scale: number): Position => {
-      const viewer = viewerRef.current;
-      const image = imageRef.current;
+  const limitPosition = useCallback((x: number, y: number, scale: number): Position => {
+    const viewer = viewerRef.current;
+    const image = imageRef.current;
 
-      if (!viewer || !image || scale <= 1) {
-        return { x: 0, y: 0 };
-      }
+    if (!viewer || !image || scale <= 1) {
+      return { x: 0, y: 0 };
+    }
 
-      // offsetWidth e offsetHeight não incluem transformações.
-      const scaledWidth = image.offsetWidth * scale;
-      const scaledHeight = image.offsetHeight * scale;
+    // offsetWidth e offsetHeight não incluem transformações.
+    const scaledWidth = image.offsetWidth * scale;
+    const scaledHeight = image.offsetHeight * scale;
 
-      const maxX = Math.max(
-        0,
-        (scaledWidth - viewer.clientWidth) / 2
-      );
+    const maxX = Math.max(0, (scaledWidth - viewer.clientWidth) / 2);
 
-      const maxY = Math.max(
-        0,
-        (scaledHeight - viewer.clientHeight) / 2
-      );
+    const maxY = Math.max(0, (scaledHeight - viewer.clientHeight) / 2);
 
-      return {
-        x: Math.max(-maxX, Math.min(maxX, x)),
-        y: Math.max(-maxY, Math.min(maxY, y)),
-      };
-    },
-    []
-  );
+    return {
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+  }, []);
 
   const updatePosition = useCallback(
     (x: number, y: number, scale: number) => {
@@ -85,19 +65,12 @@ export default function WarrantyImageZoom({
 
   const changeZoom = useCallback(
     (requested: number) => {
-      const next = Math.min(
-        MAX_ZOOM,
-        Math.max(MIN_ZOOM, requested)
-      );
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, requested));
 
       zoomRef.current = next;
       setZoom(next);
 
-      updatePosition(
-        positionRef.current.x,
-        positionRef.current.y,
-        next
-      );
+      updatePosition(positionRef.current.x, positionRef.current.y, next);
     },
     [updatePosition]
   );
@@ -122,8 +95,7 @@ export default function WarrantyImageZoom({
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
 
-      const delta =
-        event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+      const delta = event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
 
       changeZoom(zoomRef.current + delta);
     };
@@ -137,9 +109,7 @@ export default function WarrantyImageZoom({
     };
   }, [changeZoom]);
 
-  const handlePointerDown = (
-    event: PointerEvent<HTMLDivElement>
-  ) => {
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (zoomRef.current <= 1) return;
 
     if (event.pointerType === 'mouse' && event.button !== 0) {
@@ -156,20 +126,14 @@ export default function WarrantyImageZoom({
     setDragging(true);
   };
 
-  const handlePointerMove = (
-    event: PointerEvent<HTMLDivElement>
-  ) => {
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
 
     if (!drag || drag.pointerId !== event.pointerId) {
       return;
     }
 
-    updatePosition(
-      event.clientX - drag.x,
-      event.clientY - drag.y,
-      zoomRef.current
-    );
+    updatePosition(event.clientX - drag.x, event.clientY - drag.y, zoomRef.current);
   };
 
   const stopDragging = () => {
@@ -181,9 +145,7 @@ export default function WarrantyImageZoom({
     <div className="space-y-3">
       {/* Barra de ferramentas */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2">
-        <span className="text-xs text-muted-foreground">
-          Visualização da imagem
-        </span>
+        <span className="text-xs text-muted-foreground">Visualização da imagem</span>
 
         <div className="flex items-center gap-2">
           <button
@@ -191,9 +153,7 @@ export default function WarrantyImageZoom({
             aria-label="Diminuir zoom"
             title="Diminuir zoom"
             disabled={zoom <= MIN_ZOOM}
-            onClick={() =>
-              changeZoom(zoomRef.current - ZOOM_STEP)
-            }
+            onClick={() => changeZoom(zoomRef.current - ZOOM_STEP)}
             className="rounded-lg border border-border p-2 hover:bg-muted disabled:opacity-40"
           >
             <Minus className="h-4 w-4" />
@@ -208,9 +168,7 @@ export default function WarrantyImageZoom({
             aria-label="Aumentar zoom"
             title="Aumentar zoom"
             disabled={zoom >= MAX_ZOOM}
-            onClick={() =>
-              changeZoom(zoomRef.current + ZOOM_STEP)
-            }
+            onClick={() => changeZoom(zoomRef.current + ZOOM_STEP)}
             className="rounded-lg border border-border p-2 hover:bg-muted disabled:opacity-40"
           >
             <Plus className="h-4 w-4" />
@@ -236,11 +194,7 @@ export default function WarrantyImageZoom({
         tabIndex={0}
         className="relative flex h-[62dvh] min-h-[260px] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/30 outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
-          cursor: dragging
-            ? 'grabbing'
-            : zoom > 1
-              ? 'grab'
-              : 'zoom-in',
+          cursor: dragging ? 'grabbing' : zoom > 1 ? 'grab' : 'zoom-in',
           touchAction: zoom > 1 ? 'none' : 'auto',
         }}
         onPointerDown={handlePointerDown}
@@ -287,8 +241,7 @@ export default function WarrantyImageZoom({
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        Roda do mouse: zoom · Arraste quando ampliada ·
-        Duplo clique: ampliar ou restaurar
+        Roda do mouse: zoom · Arraste quando ampliada · Duplo clique: ampliar ou restaurar
       </p>
     </div>
   );

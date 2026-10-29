@@ -11,8 +11,9 @@ export type WarrantyPermissionUser = {
  * A UI deve refletir o mesmo nível administrativo concedido por `isTiMaster()`.
  */
 export function hasWarrantyAdminAccess(user: WarrantyPermissionUser | null | undefined): boolean {
-  return Boolean(user && user.active !== false &&
-    (user.role === 'admin' || user.sectors?.includes('ti')));
+  return Boolean(
+    user && user.active !== false && (user.role === 'admin' || user.sectors?.includes('ti'))
+  );
 }
 
 /** Mesma visibilidade da aba Garantias na página Departamental. */
@@ -23,9 +24,9 @@ export function canAccessWarrantyModule(
   if (!user || user.active === false) return false;
   return (
     hasWarrantyAdminAccess(user) ||
-    Boolean(user.sectors?.some((sector) =>
-      ['garantias', 'vendas', 'expedicao', 'site'].includes(sector)
-    )) ||
+    Boolean(
+      user.sectors?.some((sector) => ['garantias', 'vendas', 'expedicao', 'site'].includes(sector))
+    ) ||
     hasTrackingWarrantyFeature
   );
 }

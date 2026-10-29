@@ -41,8 +41,15 @@ vi.mock('@/components/WarrantyAttachmentViewer', () => ({
   default: ({ name }: { name: string }) => <span data-testid="anexo">{name}</span>,
 }));
 vi.mock('@/components/ConfirmActionDialog', () => ({
-  default: ({ open, title, onConfirm }: { open: boolean; title: string; onConfirm: () => Promise<void> }) =>
-    open ? <button onClick={() => void onConfirm()}>{title}</button> : null,
+  default: ({
+    open,
+    title,
+    onConfirm,
+  }: {
+    open: boolean;
+    title: string;
+    onConfirm: () => Promise<void>;
+  }) => (open ? <button onClick={() => void onConfirm()}>{title}</button> : null),
 }));
 
 import WarrantiesPanel from '../WarrantiesPanel';
@@ -78,7 +85,15 @@ const baseClaim = {
   siteInstalled: 'Não',
   siteVehicle: 'Honda Fit',
   siteNotes: 'Observação fictícia',
-  siteAttachments: [{ path: 'attachments/arquivo', name: 'comprovacao.png', type: 'image/png', size: 3, sha256: 'abc' }],
+  siteAttachments: [
+    {
+      path: 'attachments/arquivo',
+      name: 'comprovacao.png',
+      type: 'image/png',
+      size: 3,
+      sha256: 'abc',
+    },
+  ],
 };
 
 let root: Root | undefined;
@@ -88,15 +103,20 @@ async function mount() {
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
-  await act(async () => { root!.render(<WarrantiesPanel />); });
+  await act(async () => {
+    root!.render(<WarrantiesPanel />);
+  });
   return host;
 }
 
 async function click(label: string) {
-  const target = [...document.querySelectorAll<HTMLElement>('button, [role="button"]')]
-    .find((element) => element.textContent?.includes(label));
+  const target = [...document.querySelectorAll<HTMLElement>('button, [role="button"]')].find(
+    (element) => element.textContent?.includes(label)
+  );
   expect(target, `Botão ${label} não encontrado`).toBeTruthy();
-  await act(async () => { target!.click(); });
+  await act(async () => {
+    target!.click();
+  });
 }
 
 beforeEach(() => {
@@ -104,14 +124,24 @@ beforeEach(() => {
   mocks.claims = [{ ...baseClaim }];
   mocks.currentUser = { id: 'emp-test', role: 'admin', sectors: [] };
   mocks.featureEnabled = false;
-  for (const mock of [mocks.updateClaim, mocks.softDeleteClaim, mocks.restoreClaim, mocks.createClaim, mocks.updateClaimStatus, mocks.addUpdate]) {
+  for (const mock of [
+    mocks.updateClaim,
+    mocks.softDeleteClaim,
+    mocks.restoreClaim,
+    mocks.createClaim,
+    mocks.updateClaimStatus,
+    mocks.addUpdate,
+  ]) {
     mock.mockReset().mockResolvedValue(undefined);
   }
   mocks.softDeleteClaim.mockResolvedValue({ archivedTasks: 1 });
 });
 
 afterEach(async () => {
-  if (root) await act(async () => { root!.unmount(); });
+  if (root)
+    await act(async () => {
+      root!.unmount();
+    });
   root = undefined;
   host?.remove();
   host = undefined;
@@ -156,35 +186,40 @@ test('garantia excluída aparece na lixeira e pode ser restaurada', async () => 
   expect(mocks.restoreClaim).toHaveBeenCalledWith('site-test');
 });
 
-
 test('funcionário sem setores, mas com recurso liberado, vê a lixeira', async () => {
   mocks.currentUser = { id: 'emp-test', role: 'employee', sectors: [] };
   mocks.featureEnabled = true;
   mocks.claims = [
-    { ...baseClaim, id: 'manual-own', origin: '', requestedBy: 'emp-test', deletedAt: '2026-10-29T10:00:00Z' },
-    { ...baseClaim, id: 'manual-other', origin: '', requestedBy: 'emp-other', deletedAt: '2026-10-29T10:00:00Z' },
+    {
+      ...baseClaim,
+      id: 'manual-own',
+      origin: '',
+      requestedBy: 'emp-test',
+      deletedAt: '2026-10-29T10:00:00Z',
+    },
+    {
+      ...baseClaim,
+      id: 'manual-other',
+      origin: '',
+      requestedBy: 'emp-other',
+      deletedAt: '2026-10-29T10:00:00Z',
+    },
   ];
-  
-await mount();
 
-// Antes do clique, o botão mostra a quantidade de registros.
-expect(document.body.textContent).toContain('Lixeira (1)');
+  await mount();
 
-// Abre a lixeira.
-await click('Lixeira');
+  // Antes do clique, o botão mostra a quantidade de registros.
+  expect(document.body.textContent).toContain('Lixeira (1)');
 
-// Depois do clique, o botão muda de nome.
-expect(document.body.textContent).toContain(
-  'Voltar às garantias'
-);
+  // Abre a lixeira.
+  await click('Lixeira');
 
-// Confirma que o registro excluído pode ser restaurado.
-expect(document.body.textContent).toContain(
-  'Restaurar garantia'
-);
+  // Depois do clique, o botão muda de nome.
+  expect(document.body.textContent).toContain('Voltar às garantias');
 
+  // Confirma que o registro excluído pode ser restaurado.
+  expect(document.body.textContent).toContain('Restaurar garantia');
 });
-
 
 test('funcionário SITE pode excluir solicitação recebida do site', async () => {
   mocks.currentUser = { id: 'emp-site', role: 'employee', sectors: ['site'] };
@@ -211,7 +246,6 @@ test('funcionário SITE pode restaurar a solicitação recebida pelo site', asyn
   await click('Restaurar garantia');
   expect(mocks.restoreClaim).toHaveBeenCalledWith('site-test');
 });
-
 
 test('funcionário de Estoque sem Site não pode excluir garantia do site', async () => {
   mocks.currentUser = { id: 'emp-estoque', role: 'employee', sectors: ['estoque'] };

@@ -1,11 +1,6 @@
-
 import type { WarrantyClaim } from '@/hooks/useWarranties';
 
-export default function WarrantySiteDetails({
-  claim,
-}: {
-  claim: WarrantyClaim;
-}) {
+export default function WarrantySiteDetails({ claim }: { claim: WarrantyClaim }) {
   if (claim.origin !== 'site') return null;
 
   const details = [
@@ -13,12 +8,7 @@ export default function WarrantySiteDetails({
     ['Pedido', claim.siteOrder],
     ['Canal', claim.siteContactChannel],
     ['Contato', claim.siteContact],
-    [
-      'Recebimento',
-      claim.siteReceived
-        ? claim.siteReceived.split('-').reverse().join('/')
-        : '',
-    ],
+    ['Recebimento', claim.siteReceived ? claim.siteReceived.split('-').reverse().join('/') : ''],
     ['Peça instalada?', claim.siteInstalled],
     ['Veículo', claim.siteVehicle],
     ['Observações', claim.siteNotes],
@@ -37,9 +27,7 @@ export default function WarrantySiteDetails({
           .map(([label, value]) => (
             <div key={label} className="min-w-0">
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="whitespace-pre-wrap break-words">
-                {value}
-              </dd>
+              <dd className="whitespace-pre-wrap break-words">{value}</dd>
             </div>
           ))}
       </dl>

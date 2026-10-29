@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { canAccessWarrantyModule, canTrashWarranty, hasWarrantyAdminAccess } from '../warrantyPermissions';
+import {
+  canAccessWarrantyModule,
+  canTrashWarranty,
+  hasWarrantyAdminAccess,
+} from '../warrantyPermissions';
 
 const admin = { id: 'admin-1', role: 'admin', sectors: [] };
 const employee = { id: 'emp-1', role: 'employee', sectors: ['garantias'] };
@@ -9,7 +13,11 @@ const own = { requestedBy: 'emp-1', origin: '' };
 const other = { requestedBy: 'emp-2', origin: '' };
 const site = { requestedBy: 'site', origin: 'site' };
 const siteStaff = { id: 'emp-site', role: 'employee', sectors: ['site'] };
-const siteAndExpedition = { id: 'emp-site-exp', role: 'employee', sectors: ['estoque', 'site', 'expedicao'] };
+const siteAndExpedition = {
+  id: 'emp-site-exp',
+  role: 'employee',
+  sectors: ['estoque', 'site', 'expedicao'],
+};
 const fakeSite = { requestedBy: 'emp-2', origin: 'site' };
 const estoqueOnly = { id: 'emp-estoque', role: 'employee', sectors: ['estoque'] };
 const expedicaoOnly = { id: 'emp-expedicao', role: 'employee', sectors: ['expedicao'] };
